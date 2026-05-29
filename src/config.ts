@@ -1,8 +1,11 @@
-import "dotenv/config";
+import { config as loadDotenv } from "dotenv";
 import path from "node:path";
 
 import { parseSpaceTypes } from "./space-types.js";
 import type { ScanOptions } from "./types.js";
+
+loadDotenv();
+loadDotenv({ path: "local.env", override: true });
 
 export interface ApiConfig {
   googleCustomSearchApiKey?: string;

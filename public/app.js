@@ -1,3 +1,8 @@
+import { SPACE_TYPES, UK_COUNTIES } from "./options.js";
+
+const countyOptions = UK_COUNTIES.map((county) => ({ label: county, value: county }));
+const siteTypeOptions = SPACE_TYPES.map((type) => ({ label: titleCase(type), value: type }));
+
 const statusOptions = [
   ["identified", "Identified"],
   ["contacted", "Contacted"],
@@ -21,13 +26,9 @@ const state = {
   leadSortDir: "asc",
   selectedLeadIds: new Set(),
   postCodes: ["IP13 OBB", "N17 9QJ"],
-  counties: ["Somerset", "Suffolk"],
+  counties: [],
   radiusMiles: 20,
-  siteTypes: [
-    { label: "Football Club", value: "football clubs" },
-    { label: "Churches", value: "churches" },
-    { label: "Petrol Stations", value: "petrol stations / forecourts" }
-  ]
+  siteTypes: siteTypeOptions.map((type) => type.value)
 };
 
 const els = {
@@ -36,9 +37,9 @@ const els = {
   searchForm: document.querySelector("#searchForm"),
   nameInput: document.querySelector("#nameInput"),
   postCodeInput: document.querySelector("#postCodeInput"),
-  countyInput: document.querySelector("#countyInput"),
+  countyPicker: document.querySelector("#countyPicker"),
   radiusInput: document.querySelector("#radiusInput"),
-  siteTypeInput: document.querySelector("#siteTypeInput"),
+  siteTypePicker: document.querySelector("#siteTypePicker"),
   numberSitesInput: document.querySelector("#numberSitesInput"),
   postCodeChips: document.querySelector("#postCodeChips"),
   countyChips: document.querySelector("#countyChips"),
@@ -86,6 +87,34 @@ for (const [value, label] of statusOptions) {
   els.bulkStatus.append(bulkOption);
 }
 
+const countyPicker = createMultiPicker({
+  root: els.countyPicker,
+  options: countyOptions,
+  emptyLabel: "All",
+  allLabel: "All Counties",
+  searchPlaceholder: "Search",
+  showSelectAll: false,
+  getSelected: () => state.counties,
+  setSelected: (values) => {
+    state.counties = values;
+    render();
+  }
+});
+
+const siteTypePicker = createMultiPicker({
+  root: els.siteTypePicker,
+  options: siteTypeOptions,
+  emptyLabel: "Choose Site Types",
+  allLabel: "All Site Types",
+  searchPlaceholder: "Search",
+  showSelectAll: true,
+  getSelected: () => state.siteTypes,
+  setSelected: (values) => {
+    state.siteTypes = values;
+    render();
+  }
+});
+
 document.querySelectorAll(".side-link[data-view]").forEach((button) => {
   button.addEventListener("click", () => showSearchView());
 });
@@ -107,21 +136,6 @@ els.postCodeInput.addEventListener("keydown", (event) => {
     event.preventDefault();
     addChip("postCodes", els.postCodeInput.value);
     els.postCodeInput.value = "";
-  }
-});
-
-els.countyInput.addEventListener("change", () => {
-  if (els.countyInput.value) {
-    addChip("counties", els.countyInput.value);
-    els.countyInput.value = "";
-  }
-});
-
-els.siteTypeInput.addEventListener("change", () => {
-  const option = els.siteTypeInput.selectedOptions[0];
-  if (option?.value) {
-    addSiteType(option.value, option.textContent.trim());
-    els.siteTypeInput.value = "";
   }
 });
 
@@ -210,11 +224,18 @@ async function loadSearches() {
 }
 
 async function runSearch() {
+  if (!state.siteTypes.length) {
+    alert("Select at least one site type.");
+    return;
+  }
+
   els.runSearchButton.disabled = true;
   els.runSearchButton.textContent = "Running";
 
   const name = els.nameInput.value.trim() || defaultSearchName();
   const maxSites = Number(els.numberSitesInput.value || 54);
+  const spaceTypes = state.siteTypes.length === siteTypeOptions.length ? "all" : state.siteTypes.join(",");
+
   try {
     const response = await fetch("/api/searches", {
       method: "POST",
@@ -226,7 +247,7 @@ async function runSearch() {
         radiusMiles: state.radiusMiles,
         maxSites,
         limitPerType: 2,
-        spaceTypes: state.siteTypes.length ? state.siteTypes.map((type) => type.value).join(",") : "all",
+        spaceTypes,
         useAi: els.aiInput?.checked ?? true,
         mock: isMockMode()
       })
@@ -249,11 +270,17 @@ async function runSearch() {
 }
 
 function render() {
+  renderPickers();
   renderChips();
   renderSearchRows();
   renderLeadRows();
   renderView();
   renderDrawer();
+}
+
+function renderPickers() {
+  countyPicker.refresh();
+  siteTypePicker.refresh();
 }
 
 function renderView() {
@@ -276,13 +303,22 @@ function renderChips() {
 }
 
 function renderSiteTypeChips() {
+  if (state.siteTypes.length === siteTypeOptions.length) {
+    els.siteTypeChips.replaceChildren(summaryChip(`All ${siteTypeOptions.length} Site Types`));
+    return;
+  }
+
+  const selected = new Set(state.siteTypes);
   els.siteTypeChips.replaceChildren(
-    ...state.siteTypes.map((type) =>
-      chip(type.label, () => {
-        state.siteTypes = state.siteTypes.filter((item) => item.value !== type.value);
-        renderChips();
-      })
-    )
+    ...siteTypeOptions
+      .filter((type) => selected.has(type.value))
+      .map((type) =>
+        chip(type.label, () => {
+          state.siteTypes = state.siteTypes.filter((item) => item !== type.value);
+          renderPickers();
+          renderChips();
+        })
+      )
   );
 }
 
@@ -667,14 +703,9 @@ function addChip(key, rawValue) {
   renderChips();
 }
 
-function addSiteType(value, label) {
-  if (state.siteTypes.some((type) => type.value === value)) return;
-  state.siteTypes.push({ value, label });
-  renderChips();
-}
-
 function removeChip(key, value) {
   state[key] = state[key].filter((item) => item !== value);
+  renderPickers();
   renderChips();
 }
 
@@ -696,6 +727,140 @@ function chip(label, onRemove) {
   button.addEventListener("click", onRemove);
   span.append(button);
   return span;
+}
+
+function summaryChip(label) {
+  const span = document.createElement("span");
+  span.className = "chip summary-chip";
+  span.textContent = label;
+  return span;
+}
+
+function createMultiPicker({
+  root,
+  options,
+  emptyLabel,
+  allLabel,
+  searchPlaceholder,
+  showSelectAll,
+  getSelected,
+  setSelected
+}) {
+  let isOpen = false;
+  let searchValue = "";
+
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "multi-trigger";
+
+  const triggerText = document.createElement("span");
+  triggerText.className = "multi-trigger-text";
+  const triggerIcon = document.createElement("span");
+  triggerIcon.className = "multi-trigger-icon";
+  triggerIcon.textContent = "⌄";
+  trigger.append(triggerText, triggerIcon);
+
+  const menu = document.createElement("div");
+  menu.className = "multi-menu";
+
+  const searchWrap = document.createElement("label");
+  searchWrap.className = "multi-search";
+  const searchIcon = document.createElement("span");
+  searchIcon.textContent = "⌕";
+  const searchInput = document.createElement("input");
+  searchInput.type = "search";
+  searchInput.placeholder = searchPlaceholder;
+  searchWrap.append(searchIcon, searchInput);
+
+  const list = document.createElement("div");
+  list.className = "multi-list";
+
+  const actions = document.createElement("div");
+  actions.className = "multi-actions";
+  if (showSelectAll) {
+    const allButton = document.createElement("button");
+    allButton.type = "button";
+    allButton.textContent = "All";
+    allButton.addEventListener("click", () => setSelected(options.map((option) => option.value)));
+    actions.append(allButton);
+  }
+  const clearButton = document.createElement("button");
+  clearButton.type = "button";
+  clearButton.textContent = "Clear";
+  clearButton.addEventListener("click", () => setSelected([]));
+  actions.append(clearButton);
+
+  menu.append(searchWrap, list, actions);
+  root.replaceChildren(trigger, menu);
+
+  trigger.addEventListener("click", () => {
+    isOpen = !isOpen;
+    refresh();
+    if (isOpen) queueMicrotask(() => searchInput.focus());
+  });
+
+  searchInput.addEventListener("input", () => {
+    searchValue = searchInput.value;
+    renderOptions();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!root.contains(event.target)) {
+      isOpen = false;
+      refresh();
+    }
+  });
+
+  function refresh() {
+    const selected = getSelected();
+    root.classList.toggle("open", isOpen);
+    triggerText.textContent = selectedLabel(selected, options, emptyLabel, allLabel);
+    renderOptions();
+  }
+
+  function renderOptions() {
+    const needle = searchValue.trim().toLowerCase();
+    const selected = new Set(getSelected());
+    const visibleOptions = options.filter(
+      (option) => !needle || option.label.toLowerCase().includes(needle) || option.value.toLowerCase().includes(needle)
+    );
+
+    list.replaceChildren(
+      ...visibleOptions.map((option) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "multi-option";
+        row.classList.toggle("selected", selected.has(option.value));
+
+        const label = document.createElement("span");
+        label.textContent = option.label;
+        const check = document.createElement("span");
+        check.className = "multi-check";
+        check.textContent = "✓";
+
+        row.append(label, check);
+        row.addEventListener("click", () => {
+          const next = new Set(getSelected());
+          if (next.has(option.value)) next.delete(option.value);
+          else next.add(option.value);
+          setSelected(options.filter((item) => next.has(item.value)).map((item) => item.value));
+        });
+        return row;
+      })
+    );
+  }
+
+  refresh();
+  return { refresh };
+}
+
+function selectedLabel(selected, options, emptyLabel, allLabel) {
+  if (!selected.length) return emptyLabel;
+  if (selected.length === options.length) return allLabel;
+  if (selected.length === 1) {
+    return options.find((option) => option.value === selected[0])?.label || selected[0];
+  }
+  return `${selected.length} selected`;
 }
 
 function cell(child) {
@@ -771,4 +936,12 @@ function csvCell(value) {
 
 function slug(value) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "sites";
+}
+
+function titleCase(value) {
+  return value.replace(/[A-Za-z]+(?:'[A-Za-z]+)?/g, (word) => {
+    const upper = word.toUpperCase();
+    if (["DIY", "MOT", "NHS"].includes(upper)) return upper;
+    return `${word.slice(0, 1).toUpperCase()}${word.slice(1).toLowerCase()}`;
+  });
 }
