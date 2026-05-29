@@ -171,10 +171,20 @@
           </div>
         </div>
 
+        <div id="bulkActions" class="bulk-actions" hidden>
+          <span id="bulkCount">0 selected</span>
+          <select id="bulkStatus" aria-label="Bulk contact status"></select>
+          <button id="bulkUpdateStatus" class="outline" type="button">Update Status</button>
+          <button id="clearSelection" class="outline" type="button">Clear</button>
+        </div>
+
         <div class="table-card">
           <table class="data-table sites-table">
             <thead>
               <tr>
+                <th class="select-col">
+                  <input id="leadSelectAll" type="checkbox" aria-label="Select all visible sites" />
+                </th>
                 <th data-lead-sort="site">Site Name <span>↓</span></th>
                 <th data-lead-sort="status">Status <span>↓</span></th>
                 <th data-lead-sort="email">E-Mail <span>↓</span></th>

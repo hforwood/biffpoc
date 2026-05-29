@@ -19,6 +19,7 @@ const state = {
   searchSortDir: "desc",
   leadSort: "site",
   leadSortDir: "asc",
+  selectedLeadIds: new Set(),
   postCodes: ["IP13 OBB", "N17 9QJ"],
   counties: ["Somerset", "Suffolk"],
   radiusMiles: 20,
@@ -50,6 +51,12 @@ const els = {
   leadFilter: document.querySelector("#leadFilter"),
   searchRows: document.querySelector("#searchRows"),
   leadRows: document.querySelector("#leadRows"),
+  leadSelectAll: document.querySelector("#leadSelectAll"),
+  bulkActions: document.querySelector("#bulkActions"),
+  bulkCount: document.querySelector("#bulkCount"),
+  bulkStatus: document.querySelector("#bulkStatus"),
+  bulkUpdateStatus: document.querySelector("#bulkUpdateStatus"),
+  clearSelection: document.querySelector("#clearSelection"),
   backToSearch: document.querySelector("#backToSearch"),
   listTitle: document.querySelector("#listTitle"),
   downloadCsvButton: document.querySelector("#downloadCsvButton"),
@@ -72,6 +79,11 @@ for (const [value, label] of statusOptions) {
   option.value = value;
   option.textContent = label;
   els.drawerStatus.append(option);
+
+  const bulkOption = document.createElement("option");
+  bulkOption.value = value;
+  bulkOption.textContent = label;
+  els.bulkStatus.append(bulkOption);
 }
 
 document.querySelectorAll(".side-link[data-view]").forEach((button) => {
@@ -144,6 +156,19 @@ els.leadFilter.addEventListener("input", () => {
 
 els.backToSearch.addEventListener("click", showSearchView);
 els.downloadCsvButton.addEventListener("click", downloadSelectedCsv);
+els.leadSelectAll.addEventListener("change", () => {
+  const visibleLeads = sortedLeads(filteredLeads(selectedSearch()?.summary?.leads || []));
+  for (const lead of visibleLeads) {
+    if (els.leadSelectAll.checked) state.selectedLeadIds.add(lead.id);
+    else state.selectedLeadIds.delete(lead.id);
+  }
+  renderLeadRows();
+});
+els.bulkUpdateStatus.addEventListener("click", bulkUpdateStatus);
+els.clearSelection.addEventListener("click", () => {
+  state.selectedLeadIds.clear();
+  renderLeadRows();
+});
 els.closeDrawer.addEventListener("click", closeDrawer);
 els.scrim.addEventListener("click", closeDrawer);
 
@@ -274,11 +299,21 @@ function renderLeadRows() {
   const search = selectedSearch();
   if (!search) {
     els.leadRows.replaceChildren();
+    state.selectedLeadIds.clear();
+    renderBulkSelection([]);
     return;
   }
 
   els.listTitle.textContent = `${listName(search)} (${search.summary?.totals.sites || 0})`;
-  els.leadRows.replaceChildren(...sortedLeads(filteredLeads(search.summary?.leads || [])).map(leadRow));
+  const allLeads = search.summary?.leads || [];
+  const allLeadIds = new Set(allLeads.map((lead) => lead.id));
+  for (const selectedId of [...state.selectedLeadIds]) {
+    if (!allLeadIds.has(selectedId)) state.selectedLeadIds.delete(selectedId);
+  }
+
+  const visibleLeads = sortedLeads(filteredLeads(allLeads));
+  els.leadRows.replaceChildren(...visibleLeads.map(leadRow));
+  renderBulkSelection(visibleLeads);
 }
 
 function searchRow(search) {
@@ -301,9 +336,11 @@ function searchRow(search) {
 
 function leadRow(lead) {
   const row = document.createElement("tr");
+  row.classList.toggle("selected", state.selectedLeadIds.has(lead.id));
   row.addEventListener("click", () => openDrawer(lead.id));
 
   row.append(
+    cell(rowCheckbox(lead)),
     cell(siteCell(lead)),
     cell(statusPill(lead.review?.status || "identified")),
     textCell(lead.contact?.emailAddress || "", "truncate"),
@@ -315,6 +352,21 @@ function leadRow(lead) {
     textCell(money(lead.analysis.biffenRevenueYear), "num")
   );
   return row;
+}
+
+function rowCheckbox(lead) {
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "row-checkbox";
+  checkbox.checked = state.selectedLeadIds.has(lead.id);
+  checkbox.setAttribute("aria-label", `Select ${lead.site.name}`);
+  checkbox.addEventListener("click", (event) => event.stopPropagation());
+  checkbox.addEventListener("change", () => {
+    if (checkbox.checked) state.selectedLeadIds.add(lead.id);
+    else state.selectedLeadIds.delete(lead.id);
+    renderLeadRows();
+  });
+  return checkbox;
 }
 
 function siteCell(lead) {
@@ -360,6 +412,7 @@ function openSearch(id) {
   state.selectedSearchId = id;
   state.view = "list";
   state.selectedLeadId = null;
+  state.selectedLeadIds.clear();
   closeDrawer();
   render();
 }
@@ -367,11 +420,17 @@ function openSearch(id) {
 function showSearchView() {
   state.view = "site-search";
   state.selectedLeadId = null;
+  state.selectedLeadIds.clear();
   closeDrawer();
   render();
 }
 
 async function updateReview(leadId, patch) {
+  await patchLeadReview(leadId, patch);
+  render();
+}
+
+async function patchLeadReview(leadId, patch) {
   const response = await fetch(`/api/leads/${leadId}/review`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -385,7 +444,34 @@ async function updateReview(leadId, patch) {
 
   const lead = selectedSearch()?.summary?.leads.find((item) => item.id === leadId);
   if (lead) lead.review = data.review;
-  render();
+  return data.review;
+}
+
+async function bulkUpdateStatus() {
+  const selectedIds = [...state.selectedLeadIds];
+  if (!selectedIds.length) return;
+
+  els.bulkUpdateStatus.disabled = true;
+  els.bulkUpdateStatus.textContent = "Updating";
+  try {
+    await Promise.all(selectedIds.map((leadId) => patchLeadReview(leadId, { status: els.bulkStatus.value })));
+    state.selectedLeadIds.clear();
+    render();
+  } finally {
+    els.bulkUpdateStatus.disabled = false;
+    els.bulkUpdateStatus.textContent = "Update Status";
+  }
+}
+
+function renderBulkSelection(visibleLeads = sortedLeads(filteredLeads(selectedSearch()?.summary?.leads || []))) {
+  const visibleIds = visibleLeads.map((lead) => lead.id);
+  const selectedVisibleCount = visibleIds.filter((id) => state.selectedLeadIds.has(id)).length;
+  const selectedCount = state.selectedLeadIds.size;
+
+  els.bulkActions.hidden = selectedCount === 0;
+  els.bulkCount.textContent = `${selectedCount} selected`;
+  els.leadSelectAll.checked = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
+  els.leadSelectAll.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < visibleIds.length;
 }
 
 function openDrawer(leadId) {

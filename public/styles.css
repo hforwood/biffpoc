@@ -303,6 +303,35 @@ label span {
   gap: 8px;
 }
 
+.bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  margin: -14px 0 12px;
+  border: 1px solid #e2def8;
+  border-radius: 12px;
+  background: #fbf9ff;
+  padding: 6px 10px;
+}
+
+.bulk-actions[hidden] {
+  display: none;
+}
+
+#bulkCount {
+  min-width: 84px;
+  color: var(--purple-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#bulkStatus {
+  width: 170px;
+  height: 30px;
+  border-radius: 8px;
+}
+
 .table-card {
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -319,7 +348,7 @@ label span {
 }
 
 .sites-table {
-  min-width: 1240px;
+  min-width: 1280px;
 }
 
 .data-table th,
@@ -353,6 +382,10 @@ label span {
   background: #fbfbff;
 }
 
+.data-table tbody tr.selected {
+  background: #fbf9ff;
+}
+
 .data-table td {
   color: #111;
   font-weight: 500;
@@ -378,30 +411,44 @@ label span {
   width: 190px;
 }
 
-.sites-table th:nth-child(1) {
-  width: 220px;
+.select-col {
+  width: 44px;
+  text-align: center;
+  cursor: default !important;
+}
+
+.select-col input,
+.row-checkbox {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  vertical-align: middle;
 }
 
 .sites-table th:nth-child(2) {
-  width: 100px;
+  width: 220px;
 }
 
 .sites-table th:nth-child(3) {
-  width: 170px;
+  width: 100px;
 }
 
 .sites-table th:nth-child(4) {
-  width: 130px;
+  width: 170px;
 }
 
 .sites-table th:nth-child(5) {
+  width: 130px;
+}
+
+.sites-table th:nth-child(6) {
   width: 150px;
 }
 
-.sites-table th:nth-child(6),
 .sites-table th:nth-child(7),
 .sites-table th:nth-child(8),
-.sites-table th:nth-child(9) {
+.sites-table th:nth-child(9),
+.sites-table th:nth-child(10) {
   width: 110px;
 }
 
