@@ -162,7 +162,7 @@ export class GoogleMapsClient {
       zoom: String(zoom),
       size: `${cssSizePx}x${cssSizePx}`,
       scale: String(scale),
-      maptype: "satellite",
+      maptype: "hybrid",
       key: this.config.googleMapsApiKey!
     });
 

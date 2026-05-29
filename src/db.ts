@@ -2,6 +2,7 @@ import { Pool } from "pg";
 
 import { readEnv } from "./config.js";
 import type { AiFeedbackEntry } from "./feedback-memory.js";
+import type { Project } from "./projects.js";
 import type { SearchRun } from "./search-runs.js";
 import type { SiteLead, SiteReview } from "./types.js";
 import { stableLeadKey } from "./utils/stable-key.js";
@@ -52,6 +53,35 @@ export async function upsertSearchRunDb(run: SearchRun): Promise<void> {
   if (run.summary?.leads?.length) {
     await Promise.all(run.summary.leads.map((lead) => upsertSiteLeadDb(run.id, lead)));
   }
+}
+
+export async function listProjectsDb(): Promise<Project[]> {
+  await ensureSchema();
+  const result = await getPool().query<{ data: Project }>("select data from biff_projects order by created_at desc");
+  return result.rows.map((row) => row.data);
+}
+
+export async function getProjectDb(id: string): Promise<Project | undefined> {
+  await ensureSchema();
+  const result = await getPool().query<{ data: Project }>("select data from biff_projects where id = $1", [id]);
+  return result.rows[0]?.data;
+}
+
+export async function upsertProjectDb(project: Project): Promise<void> {
+  await ensureSchema();
+  await getPool().query(
+    `insert into biff_projects (id, created_at, updated_at, data)
+     values ($1, $2, $3, $4::jsonb)
+     on conflict (id) do update set
+       updated_at = excluded.updated_at,
+       data = excluded.data`,
+    [project.id, project.createdAt, project.updatedAt, JSON.stringify(project)]
+  );
+}
+
+export async function deleteProjectDb(id: string): Promise<void> {
+  await ensureSchema();
+  await getPool().query("delete from biff_projects where id = $1", [id]);
 }
 
 export async function upsertSiteLeadDb(searchId: string, lead: SiteLead): Promise<void> {
@@ -206,6 +236,13 @@ async function initializeSchema(): Promise<void> {
       unique (search_id, stable_key)
     );
 
+    create table if not exists biff_projects (
+      id text primary key,
+      created_at timestamptz not null,
+      updated_at timestamptz not null,
+      data jsonb not null
+    );
+
     create table if not exists biff_site_reviews (
       lead_id text primary key,
       data jsonb not null,
@@ -235,6 +272,7 @@ async function initializeSchema(): Promise<void> {
     create index if not exists biff_search_runs_created_at_idx on biff_search_runs (created_at desc);
     create index if not exists biff_site_leads_search_id_idx on biff_site_leads (search_id);
     create index if not exists biff_ai_feedback_created_at_idx on biff_ai_feedback_memory (created_at desc);
+    create index if not exists biff_projects_created_at_idx on biff_projects (created_at desc);
   `);
 }
 

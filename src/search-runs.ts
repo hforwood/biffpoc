@@ -56,6 +56,46 @@ export async function getSearchRun(outDir: string, id: string): Promise<SearchRu
   return runs.find((run) => run.id === id);
 }
 
+export async function findLeadInSearchRuns(outDir: string, leadId: string): Promise<{ search: SearchRun; lead: SiteLead } | undefined> {
+  const runs = await listSearchRuns(outDir);
+  for (const run of runs) {
+    const lead = run.summary?.leads.find((item) => item.id === leadId);
+    if (lead) return { search: run, lead };
+  }
+  return undefined;
+}
+
+export async function updateLeadInSearchRuns(
+  outDir: string,
+  leadId: string,
+  updateLead: (lead: SiteLead, search: SearchRun) => Promise<SiteLead> | SiteLead
+): Promise<{ search: SearchRun; lead: SiteLead }> {
+  const runs = await listSearchRuns(outDir);
+
+  for (const run of runs) {
+    const leads = run.summary?.leads ?? [];
+    const index = leads.findIndex((lead) => lead.id === leadId);
+    if (index === -1 || !run.summary) continue;
+
+    const nextLead = await updateLead(leads[index], run);
+    const nextLeads = leads.map((lead, leadIndex) => (leadIndex === index ? nextLead : lead));
+    const nextRun: SearchRun = {
+      ...run,
+      updatedAt: new Date().toISOString(),
+      summary: {
+        ...run.summary,
+        generatedAt: new Date().toISOString(),
+        leads: nextLeads,
+        totals: totalsFor(nextLeads)
+      }
+    };
+    await upsertSearchRun(outDir, nextRun);
+    return { search: nextRun, lead: nextLead };
+  }
+
+  throw new Error("Site not found in saved searches.");
+}
+
 export async function createSearchRun(outDir: string, input: CreateSearchRunInput): Promise<SearchRun> {
   const createdAt = new Date().toISOString();
   const id = randomUUID();
@@ -251,7 +291,7 @@ function mergeSummaries(run: SearchRun, summaries: ScanSummary[], maxSites: numb
   };
 }
 
-function totalsFor(leads: SiteLead[]): ScanSummary["totals"] {
+export function totalsFor(leads: SiteLead[]): ScanSummary["totals"] {
   return {
     sites: leads.length,
     totalModules: leads.reduce((sum, lead) => sum + lead.analysis.totalModules, 0),
@@ -271,7 +311,7 @@ async function readSearchRuns(outDir: string): Promise<SearchRun[]> {
   }
 }
 
-async function upsertSearchRun(outDir: string, run: SearchRun): Promise<void> {
+export async function upsertSearchRun(outDir: string, run: SearchRun): Promise<void> {
   if (databaseEnabled()) {
     await upsertSearchRunDb(run);
     return;

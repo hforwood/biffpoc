@@ -60,6 +60,14 @@ export interface StaticMapContext {
   contentType?: string;
 }
 
+export interface SiteCriteria {
+  nearbyHousing: boolean;
+  hasCarPark: boolean;
+  confidence: number;
+  notes: string[];
+  source: "ai" | "heuristic" | "mock";
+}
+
 export interface MapAnnotation {
   label: string;
   x1: number;
@@ -139,6 +147,8 @@ export interface SiteLead {
   contact: ContactInfo;
   searchResults: SearchResult[];
   scrapedPages: ScrapedPage[];
+  criteria?: SiteCriteria;
+  profile?: SiteProfile;
   staticMap?: StaticMapContext;
   snapshots?: MapSnapshot;
   analysis: SiteAnalysis;
@@ -151,13 +161,60 @@ export type ContactStatus =
   | "call_booked"
   | "rejected"
   | "site_visit"
-  | "closed_won";
+  | "closed_won"
+  | "registered";
 
 export interface SiteReview {
   status: ContactStatus;
   isGood?: boolean;
   notes?: string;
   updatedAt?: string;
+}
+
+export interface SiteProfile {
+  profile: SiteProfileDetails;
+  business: SiteBusinessDetails;
+  siteDetails: SiteOperationalDetails;
+  updatedAt?: string;
+  updatedBy?: "admin" | "site_owner";
+}
+
+export interface SiteProfileDetails {
+  siteName?: string;
+  siteWebsite?: string;
+  siteContactEmail?: string;
+  sitePhoneNumber?: string;
+  siteAddress?: string;
+  contactForm?: string;
+}
+
+export interface SiteBusinessDetails {
+  mainContactFullName?: string;
+  mainContactEmail?: string;
+  mainContactPhoneNumber?: string;
+  organisationType?: string;
+  registeredAddress?: string;
+  registryId?: string;
+  registeredName?: string;
+}
+
+export interface SiteOperationalDetails {
+  gateHasCombinationLock?: boolean;
+  concreteNeedsBuilding?: boolean;
+  signedAgreement?: boolean;
+  agreementStartDate?: string;
+  agreementEndDate?: string;
+  breakClauseDate?: string;
+  accessSchedule?: string;
+  gatedExternal?: string;
+  cctvOnSite?: boolean;
+  additionalSiteNotes?: string;
+  distanceFromPostcodeMiles?: number;
+  estimatedDriveMinutes?: number;
+  roughLockerPlacement?: string;
+  mediaUrls?: string[];
+  agreementFileUrl?: string;
+  agreementFileName?: string;
 }
 
 export interface SiteScore {

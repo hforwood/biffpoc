@@ -9,15 +9,21 @@ const statusOptions = [
   ["call_booked", "Call Booked"],
   ["rejected", "Rejected"],
   ["site_visit", "Site Visit"],
-  ["closed_won", "Closed Won"]
+  ["closed_won", "Closed Won"],
+  ["registered", "Registered"]
 ];
 
 const state = {
   searches: [],
+  projects: [],
   selectedSearchId: null,
+  selectedProjectId: null,
   selectedLeadId: null,
   view: "site-search",
-  imageTab: "annotated",
+  drawerTab: "profile",
+  projectTab: "all",
+  pendingUploadRows: [],
+  ownerFormLinks: {},
   searchFilter: "",
   leadFilter: "",
   searchSort: "created",
@@ -34,8 +40,11 @@ const state = {
 const els = {
   siteSearchNav: document.querySelector("#siteSearchNav"),
   listsNav: document.querySelector("#listsNav"),
+  projectsNav: document.querySelector("#projectsNav"),
   siteSearchView: document.querySelector("#siteSearchView"),
   listView: document.querySelector("#listView"),
+  projectsView: document.querySelector("#projectsView"),
+  projectDetailView: document.querySelector("#projectDetailView"),
   searchForm: document.querySelector("#searchForm"),
   nameInput: document.querySelector("#nameInput"),
   postCodeInput: document.querySelector("#postCodeInput"),
@@ -63,7 +72,21 @@ const els = {
   backToSearch: document.querySelector("#backToSearch"),
   listTitle: document.querySelector("#listTitle"),
   addMoreButton: document.querySelector("#addMoreButton"),
+  downloadTemplateButton: document.querySelector("#downloadTemplateButton"),
+  uploadSitesButton: document.querySelector("#uploadSitesButton"),
+  uploadSitesInput: document.querySelector("#uploadSitesInput"),
+  analyzeUploadButton: document.querySelector("#analyzeUploadButton"),
   downloadCsvButton: document.querySelector("#downloadCsvButton"),
+  createProjectButton: document.querySelector("#createProjectButton"),
+  projectRows: document.querySelector("#projectRows"),
+  backToProjects: document.querySelector("#backToProjects"),
+  projectTitle: document.querySelector("#projectTitle"),
+  contractorProjectLink: document.querySelector("#contractorProjectLink"),
+  copyContractorProjectLink: document.querySelector("#copyContractorProjectLink"),
+  syncProjectButton: document.querySelector("#syncProjectButton"),
+  deleteProjectButton: document.querySelector("#deleteProjectButton"),
+  projectTabs: document.querySelectorAll("[data-project-tab]"),
+  projectSiteRows: document.querySelector("#projectSiteRows"),
   drawer: document.querySelector("#drawer"),
   scrim: document.querySelector("#scrim"),
   closeDrawer: document.querySelector("#closeDrawer"),
@@ -73,7 +96,17 @@ const els = {
   drawerBad: document.querySelector("#drawerBad"),
   feedbackNotes: document.querySelector("#feedbackNotes"),
   saveFeedback: document.querySelector("#saveFeedback"),
-  siteImage: document.querySelector("#siteImage"),
+  drawerTabs: document.querySelectorAll("[data-drawer-tab]"),
+  drawerPanels: document.querySelectorAll("[data-drawer-panel]"),
+  profileFields: document.querySelectorAll("[data-profile-field]"),
+  ownerFormLink: document.querySelector("#ownerFormLink"),
+  copyOwnerFormLink: document.querySelector("#copyOwnerFormLink"),
+  openOwnerFormLink: document.querySelector("#openOwnerFormLink"),
+  saveProfile: document.querySelector("#saveProfile"),
+  siteMapFrame: document.querySelector("#siteMapFrame"),
+  streetViewFrame: document.querySelector("#streetViewFrame"),
+  openMapButton: document.querySelector("#openMapButton"),
+  openStreetViewButton: document.querySelector("#openStreetViewButton"),
   contactDetails: document.querySelector("#contactDetails"),
   aiScoring: document.querySelector("#aiScoring")
 };
@@ -122,6 +155,13 @@ document.querySelectorAll(".side-link[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
     if (button.dataset.view === "site-search") {
       showSearchView();
+      return;
+    }
+
+    if (button.dataset.view === "projects") {
+      state.view = "projects";
+      closeDrawer();
+      render();
       return;
     }
 
@@ -183,7 +223,33 @@ els.leadFilter.addEventListener("input", () => {
 
 els.backToSearch.addEventListener("click", showSearchView);
 els.addMoreButton.addEventListener("click", addMoreSites);
+els.downloadTemplateButton.addEventListener("click", downloadUploadTemplate);
+els.uploadSitesButton.addEventListener("click", () => els.uploadSitesInput.click());
+els.uploadSitesInput.addEventListener("change", handleUploadFile);
+els.analyzeUploadButton.addEventListener("click", analyzeUploadedSites);
 els.downloadCsvButton.addEventListener("click", downloadSelectedCsv);
+els.createProjectButton.addEventListener("click", createProjectFromPrompt);
+els.backToProjects.addEventListener("click", () => {
+  state.view = "projects";
+  state.selectedProjectId = null;
+  render();
+});
+els.syncProjectButton.addEventListener("click", syncSelectedProject);
+els.deleteProjectButton.addEventListener("click", deleteSelectedProject);
+els.copyContractorProjectLink.addEventListener("click", async () => {
+  if (!els.contractorProjectLink.value) return;
+  await navigator.clipboard.writeText(els.contractorProjectLink.value);
+  els.copyContractorProjectLink.textContent = "Copied";
+  setTimeout(() => {
+    els.copyContractorProjectLink.textContent = "Copy Contractor Link";
+  }, 1200);
+});
+els.projectTabs.forEach((button) => {
+  button.addEventListener("click", () => {
+    state.projectTab = button.dataset.projectTab;
+    renderProjectDetail();
+  });
+});
 els.leadSelectAll.addEventListener("change", () => {
   const visibleLeads = sortedLeads(filteredLeads(selectedSearch()?.summary?.leads || []));
   for (const lead of visibleLeads) {
@@ -220,13 +286,24 @@ els.saveFeedback.addEventListener("click", () => {
   if (lead) updateReview(lead.id, { notes: els.feedbackNotes.value });
 });
 
-document.querySelectorAll(".tabs button").forEach((button) => {
+els.drawerTabs.forEach((button) => {
   button.addEventListener("click", () => {
-    state.imageTab = button.dataset.tab;
-    document.querySelectorAll(".tabs button").forEach((item) => item.classList.toggle("active", item === button));
-    renderDrawer();
+    state.drawerTab = button.dataset.drawerTab;
+    renderDrawerTabs();
   });
 });
+
+els.copyOwnerFormLink.addEventListener("click", async () => {
+  const value = els.ownerFormLink.value;
+  if (!value) return;
+  await navigator.clipboard.writeText(value);
+  els.copyOwnerFormLink.textContent = "Copied";
+  setTimeout(() => {
+    els.copyOwnerFormLink.textContent = "Copy";
+  }, 1200);
+});
+
+els.saveProfile.addEventListener("click", saveLeadProfile);
 
 loadSearches();
 
@@ -234,10 +311,16 @@ async function loadSearches() {
   try {
     const data = await fetchJson("/api/searches");
     state.searches = data.searches || [];
+    await loadProjects();
     render();
   } catch (error) {
     alert(errorMessage(error));
   }
+}
+
+async function loadProjects() {
+  const data = await fetchJson("/api/projects");
+  state.projects = data.projects || [];
 }
 
 async function runSearch() {
@@ -300,6 +383,8 @@ function render() {
   renderChips();
   renderSearchRows();
   renderLeadRows();
+  renderProjectRows();
+  renderProjectDetail();
   renderView();
   renderDrawer();
 }
@@ -307,6 +392,7 @@ function render() {
 function renderNavigation() {
   els.siteSearchNav.classList.toggle("active", state.view === "site-search");
   els.listsNav.classList.toggle("active", state.view === "list");
+  els.projectsNav.classList.toggle("active", state.view === "projects" || state.view === "project-detail");
 }
 
 function renderPickers() {
@@ -317,6 +403,8 @@ function renderPickers() {
 function renderView() {
   els.siteSearchView.classList.toggle("hidden", state.view !== "site-search");
   els.listView.classList.toggle("hidden", state.view !== "list");
+  els.projectsView.classList.toggle("hidden", state.view !== "projects");
+  els.projectDetailView.classList.toggle("hidden", state.view !== "project-detail");
 }
 
 function renderChips() {
@@ -383,6 +471,88 @@ function renderLeadRows() {
   renderBulkSelection(visibleLeads);
 }
 
+function renderProjectRows() {
+  const rows = state.projects.map((project) => {
+    const row = document.createElement("tr");
+    row.addEventListener("click", () => openProject(project.id));
+    const link = contractorLink(project);
+    row.append(
+      textCell(project.name, "strong"),
+      cell(chipCluster(project.postCodes || [], [])),
+      textCell(String(project.sites?.length || 0), "num"),
+      cell(linkElement(link, "Open contractor view"))
+    );
+    return row;
+  });
+  els.projectRows.replaceChildren(...rows);
+}
+
+function renderProjectDetail() {
+  const project = selectedProject();
+  if (!project) {
+    els.projectSiteRows.replaceChildren();
+    return;
+  }
+
+  els.projectTitle.textContent = project.name;
+  els.contractorProjectLink.value = contractorLink(project);
+  els.projectTabs.forEach((button) => button.classList.toggle("active", button.dataset.projectTab === state.projectTab));
+
+  const sites = (project.siteProfiles || []).filter((site) =>
+    state.projectTab === "contractor" ? site.contractorStatus === "interested" : true
+  );
+  els.projectSiteRows.replaceChildren(...sites.map(projectSiteRow));
+}
+
+function projectSiteRow(projectSite) {
+  const lead = projectSite.lead;
+  const row = document.createElement("tr");
+  row.addEventListener("click", () => {
+    if (!lead) return;
+    state.selectedSearchId = projectSite.searchId;
+    state.view = "list";
+    openDrawer(projectSite.leadId);
+  });
+
+  const statusSelect = document.createElement("select");
+  for (const [value, label] of [
+    ["for_review", "For Review"],
+    ["rejected", "Rejected"],
+    ["interested", "Interested"]
+  ]) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    statusSelect.append(option);
+  }
+  statusSelect.value = projectSite.contractorStatus || "for_review";
+  statusSelect.addEventListener("click", (event) => event.stopPropagation());
+  statusSelect.addEventListener("change", () => updateProjectSite(projectSite.leadId, { contractorStatus: statusSelect.value }));
+
+  const installDate = document.createElement("input");
+  installDate.type = "date";
+  installDate.value = projectSite.estimatedInstallationDate || "";
+  installDate.addEventListener("click", (event) => event.stopPropagation());
+  installDate.addEventListener("change", () => updateProjectSite(projectSite.leadId, { estimatedInstallationDate: installDate.value }));
+
+  const agreement = document.createElement("input");
+  agreement.placeholder = "Contract/doc URL";
+  agreement.value = projectSite.agreementFileUrl || "";
+  agreement.addEventListener("click", (event) => event.stopPropagation());
+  agreement.addEventListener("change", () => updateProjectSite(projectSite.leadId, { agreementFileUrl: agreement.value }));
+
+  row.append(
+    textCell(lead?.site.name || projectSite.leadId, "strong"),
+    textCell(projectSite.postcode || ""),
+    textCell(distanceLabel(projectSite.distanceMiles ?? lead?.site.distanceMiles), "num"),
+    cell(statusPill(lead?.review.status || "identified")),
+    cell(statusSelect),
+    cell(installDate),
+    cell(agreement)
+  );
+  return row;
+}
+
 function searchRow(search) {
   const row = document.createElement("tr");
   row.addEventListener("click", () => openSearch(search.id));
@@ -413,6 +583,8 @@ function leadRow(lead) {
     textCell(lead.contact?.emailAddress || "", "truncate"),
     textCell(lead.contact?.phoneNumber || "", "truncate"),
     textCell(lead.site.spaceType, "truncate"),
+    textCell(booleanLabel(lead.criteria?.hasCarPark), "num"),
+    textCell(booleanLabel(lead.criteria?.nearbyHousing), "num"),
     textCell(`${lead.analysis.score.total}%`, "num"),
     textCell(money(lead.analysis.totalRevenueYear), "num"),
     textCell(money(lead.analysis.paidToSpaceOwnerYear), "num"),
@@ -567,6 +739,97 @@ async function addMoreSites() {
   }
 }
 
+async function createProjectFromPrompt() {
+  const name = window.prompt("Project name", "New Lockerly Project");
+  if (name === null) return;
+  const rawPostcodes = window.prompt("Postcodes for this project. Use commas or new lines.", "");
+  if (rawPostcodes === null) return;
+  const postCodes = rawPostcodes
+    .split(/,|\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!postCodes.length) {
+    alert("Add at least one postcode.");
+    return;
+  }
+
+  try {
+    const data = await fetchJson("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, postCodes })
+    });
+    state.projects = [data.project, ...state.projects.filter((project) => project.id !== data.project.id)];
+    state.selectedProjectId = data.project.id;
+    state.view = "project-detail";
+    render();
+  } catch (error) {
+    alert(errorMessage(error));
+  }
+}
+
+async function openProject(projectId) {
+  try {
+    const data = await fetchJson(`/api/projects/${projectId}`);
+    state.projects = [data.project, ...state.projects.filter((project) => project.id !== data.project.id)];
+    state.selectedProjectId = data.project.id;
+    state.projectTab = "all";
+    state.view = "project-detail";
+    render();
+  } catch (error) {
+    alert(errorMessage(error));
+  }
+}
+
+async function syncSelectedProject() {
+  const project = selectedProject();
+  if (!project) return;
+
+  els.syncProjectButton.disabled = true;
+  els.syncProjectButton.textContent = "Syncing";
+  try {
+    const data = await fetchJson(`/api/projects/${project.id}/sync`, { method: "POST" });
+    state.projects = [data.project, ...state.projects.filter((item) => item.id !== data.project.id)];
+    render();
+  } catch (error) {
+    alert(errorMessage(error));
+  } finally {
+    els.syncProjectButton.disabled = false;
+    els.syncProjectButton.textContent = "Sync Sites";
+  }
+}
+
+async function deleteSelectedProject() {
+  const project = selectedProject();
+  if (!project || !window.confirm(`Delete ${project.name}?`)) return;
+  try {
+    await fetchJson(`/api/projects/${project.id}`, { method: "DELETE" });
+    state.projects = state.projects.filter((item) => item.id !== project.id);
+    state.selectedProjectId = null;
+    state.view = "projects";
+    render();
+  } catch (error) {
+    alert(errorMessage(error));
+  }
+}
+
+async function updateProjectSite(leadId, patch) {
+  const project = selectedProject();
+  if (!project) return;
+
+  try {
+    const data = await fetchJson(`/api/projects/${project.id}/sites/${leadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch)
+    });
+    state.projects = [data.project, ...state.projects.filter((item) => item.id !== data.project.id)];
+    renderProjectDetail();
+  } catch (error) {
+    alert(errorMessage(error));
+  }
+}
+
 function renderBulkSelection(visibleLeads = sortedLeads(filteredLeads(selectedSearch()?.summary?.leads || []))) {
   const visibleIds = visibleLeads.map((lead) => lead.id);
   const selectedVisibleCount = visibleIds.filter((id) => state.selectedLeadIds.has(id)).length;
@@ -580,10 +843,12 @@ function renderBulkSelection(visibleLeads = sortedLeads(filteredLeads(selectedSe
 
 function openDrawer(leadId) {
   state.selectedLeadId = leadId;
+  state.drawerTab = "profile";
   els.drawer.classList.add("open");
   els.scrim.classList.add("open");
   els.drawer.setAttribute("aria-hidden", "false");
   renderDrawer();
+  loadLeadProfileMeta(leadId);
 }
 
 function closeDrawer() {
@@ -596,18 +861,140 @@ function renderDrawer() {
   const lead = selectedLead();
   if (!lead) return;
 
+  renderDrawerTabs();
   els.drawerTitle.textContent = lead.site.name;
   els.drawerStatus.value = lead.review?.status || "identified";
   els.drawerGood.classList.toggle("active", lead.review?.isGood === true);
   els.drawerBad.classList.toggle("active", lead.review?.isGood === false);
   els.feedbackNotes.value = lead.review?.notes || "";
-  els.siteImage.src =
-    state.imageTab === "original"
-      ? lead.snapshots?.originalUrl || ""
-      : lead.snapshots?.annotatedUrl || lead.snapshots?.originalUrl || "";
+  setFrameSrc(els.siteMapFrame, mapEmbedUrl(lead));
+  setFrameSrc(els.streetViewFrame, streetViewEmbedUrl(lead));
+  els.openMapButton.href = lead.site.googleMapsUri || mapOpenUrl(lead);
+  els.openStreetViewButton.href = streetViewOpenUrl(lead);
+  populateProfileFields(lead);
+  populateOwnerFormLink(lead.id);
 
   els.contactDetails.replaceChildren(...contactRows(lead));
   els.aiScoring.textContent = aiScoringText(lead);
+}
+
+function renderDrawerTabs() {
+  els.drawerTabs.forEach((button) => {
+    button.classList.toggle("active", button.dataset.drawerTab === state.drawerTab);
+  });
+  els.drawerPanels.forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.drawerPanel === state.drawerTab);
+  });
+}
+
+async function loadLeadProfileMeta(leadId) {
+  try {
+    const data = await fetchJson(`/api/leads/${leadId}/profile`);
+    if (data.search) {
+      state.searches = [data.search, ...state.searches.filter((item) => item.id !== data.search.id)];
+    }
+    if (data.ownerUrlPath) {
+      state.ownerFormLinks[leadId] = new URL(data.ownerUrlPath, window.location.origin).toString();
+    }
+    renderDrawer();
+  } catch (error) {
+    console.warn(errorMessage(error));
+  }
+}
+
+function populateOwnerFormLink(leadId) {
+  const link = state.ownerFormLinks[leadId] || "";
+  els.ownerFormLink.value = link || "Loading...";
+  els.openOwnerFormLink.href = link || "#";
+  els.openOwnerFormLink.toggleAttribute("aria-disabled", !link);
+}
+
+function populateProfileFields(lead) {
+  for (const field of els.profileFields) {
+    const value = profileFieldValue(lead, field.dataset.profileField);
+    if (field.dataset.valueType === "lines") {
+      field.value = Array.isArray(value) ? value.join("\n") : value || "";
+      continue;
+    }
+    if (field.dataset.valueType === "boolean") {
+      field.value = value === true ? "true" : value === false ? "false" : "";
+      continue;
+    }
+    field.value = value ?? "";
+  }
+}
+
+function profileFieldValue(lead, path) {
+  const stored = nestedValue(lead.profile, path);
+  if (stored !== undefined && stored !== null) return stored;
+
+  const fallbacks = {
+    "profile.siteName": lead.site.name,
+    "profile.siteWebsite": lead.site.websiteUri,
+    "profile.siteContactEmail": lead.contact?.emailAddress,
+    "profile.sitePhoneNumber": lead.contact?.phoneNumber,
+    "profile.siteAddress": lead.site.address,
+    "profile.contactForm": lead.contact?.contactFormUrl,
+    "siteDetails.distanceFromPostcodeMiles": lead.site.distanceMiles
+  };
+  return fallbacks[path];
+}
+
+function nestedValue(source, path) {
+  return path.split(".").reduce((value, key) => (value && typeof value === "object" ? value[key] : undefined), source);
+}
+
+async function saveLeadProfile() {
+  const lead = selectedLead();
+  if (!lead) return;
+
+  els.saveProfile.disabled = true;
+  els.saveProfile.textContent = "Saving";
+  try {
+    const data = await fetchJson(`/api/leads/${lead.id}/profile`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(collectProfilePatch())
+    });
+    if (data.search) {
+      state.searches = [data.search, ...state.searches.filter((item) => item.id !== data.search.id)];
+      state.selectedSearchId = data.search.id;
+    }
+    if (data.ownerUrlPath) {
+      state.ownerFormLinks[lead.id] = new URL(data.ownerUrlPath, window.location.origin).toString();
+    }
+    render();
+  } catch (error) {
+    alert(errorMessage(error));
+  } finally {
+    els.saveProfile.disabled = false;
+    els.saveProfile.textContent = "Save Profile";
+  }
+}
+
+function collectProfilePatch() {
+  const patch = { profile: {}, business: {}, siteDetails: {} };
+  for (const field of els.profileFields) {
+    const [section, key] = field.dataset.profileField.split(".");
+    let value = field.value.trim();
+    if (field.dataset.valueType === "boolean") {
+      value = value === "true" ? true : value === "false" ? false : undefined;
+    } else if (field.dataset.valueType === "number") {
+      const number = Number(value);
+      value = Number.isFinite(number) ? number : undefined;
+    } else if (field.dataset.valueType === "lines") {
+      value = value
+        ? value
+            .split(/\n|,/)
+            .map((item) => item.trim())
+            .filter(Boolean)
+        : undefined;
+    } else if (!value) {
+      value = undefined;
+    }
+    patch[section][key] = value;
+  }
+  return patch;
 }
 
 function contactRows(lead) {
@@ -633,33 +1020,128 @@ function contactLine(label, value) {
 }
 
 function aiScoringText(lead) {
-  const rationale = lead.analysis.score.rationale?.[0] || lead.analysis.notes?.[0] || "No additional scoring notes.";
-  return `AI Scoring: ${lead.analysis.score.total}/100 - ${rationale}`;
+  const criteria = lead.criteria;
+  const notes = criteria?.notes?.[0] || lead.analysis.notes?.[0] || "No additional criteria notes.";
+  return `AI Criteria: Car park ${booleanLabel(criteria?.hasCarPark)} · Nearby housing ${booleanLabel(criteria?.nearbyHousing)} · ${notes}`;
+}
+
+function downloadUploadTemplate() {
+  const rows = [
+    ["site_name", "address", "website", "phone", "email", "contact_form_url", "site_type", "google_maps_url", "latitude", "longitude"],
+    ["Example Football Club", "1 High Street, Preston PR1 1AA", "https://example.com", "", "", "", "football clubs", "", "", ""]
+  ];
+  downloadCsvRows(rows, "site-upload-template.csv");
+}
+
+async function handleUploadFile() {
+  const file = els.uploadSitesInput.files?.[0];
+  if (!file) return;
+
+  try {
+    state.pendingUploadRows = parseCsv(await file.text());
+    els.analyzeUploadButton.disabled = state.pendingUploadRows.length === 0;
+    els.analyzeUploadButton.textContent = state.pendingUploadRows.length
+      ? `Analyze Upload (${state.pendingUploadRows.length})`
+      : "Analyze Upload";
+  } catch (error) {
+    state.pendingUploadRows = [];
+    els.analyzeUploadButton.disabled = true;
+    alert(errorMessage(error));
+  }
+}
+
+async function analyzeUploadedSites() {
+  const search = selectedSearch();
+  if (!search || !state.pendingUploadRows.length) return;
+
+  els.analyzeUploadButton.disabled = true;
+  els.analyzeUploadButton.textContent = "Analyzing";
+  try {
+    const data = await fetchJson(`/api/searches/${search.id}/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        rows: state.pendingUploadRows,
+        useAi: els.aiInput?.checked ?? true,
+        mock: isMockMode()
+      })
+    });
+    state.searches = [data.search, ...state.searches.filter((item) => item.id !== data.search.id)];
+    state.selectedSearchId = data.search.id;
+    state.pendingUploadRows = [];
+    els.uploadSitesInput.value = "";
+    if (data.search.status === "error") alert(data.search.error || "Upload analysis failed.");
+    render();
+  } catch (error) {
+    alert(errorMessage(error));
+  } finally {
+    els.analyzeUploadButton.textContent = "Analyze Upload";
+    els.analyzeUploadButton.disabled = state.pendingUploadRows.length === 0;
+  }
+}
+
+function booleanLabel(value) {
+  return value ? "✓" : "×";
+}
+
+function setFrameSrc(frame, src) {
+  if (frame.src !== src) frame.src = src;
+}
+
+function mapEmbedUrl(lead) {
+  const location = lead.site.location;
+  if (!location) return "about:blank";
+  const q = `${location.latitude},${location.longitude}`;
+  return `https://www.google.com/maps?q=${encodeURIComponent(q)}&z=19&t=k&output=embed`;
+}
+
+function streetViewEmbedUrl(lead) {
+  const location = lead.site.location;
+  if (!location) return "about:blank";
+  return `https://www.google.com/maps?layer=c&cbll=${location.latitude},${location.longitude}&cbp=12,0,0,0,0&output=svembed`;
+}
+
+function mapOpenUrl(lead) {
+  const location = lead.site.location;
+  if (!location) return "https://www.google.com/maps";
+  return `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}`;
+}
+
+function streetViewOpenUrl(lead) {
+  const location = lead.site.location;
+  if (!location) return lead.site.googleMapsUri || "https://www.google.com/maps";
+  return `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${location.latitude},${location.longitude}`;
 }
 
 function downloadSelectedCsv() {
   const search = selectedSearch();
   if (!search?.summary) return;
   const rows = [
-    ["Site Name", "Status", "E-Mail", "Phone Number", "Site Type", "Site Viability", "Est. Rev", "Site Owner Rev", "Biff Rev"],
+    ["Site Name", "Status", "E-Mail", "Phone Number", "Site Type", "Car Park", "Nearby Housing", "Site Viability", "Est. Rev", "Site Owner Rev", "Biff Rev"],
     ...search.summary.leads.map((lead) => [
       lead.site.name,
       statusLabel(lead.review?.status || "identified"),
       lead.contact?.emailAddress || "",
       lead.contact?.phoneNumber || "",
       lead.site.spaceType,
+      lead.criteria?.hasCarPark ? "yes" : "no",
+      lead.criteria?.nearbyHousing ? "yes" : "no",
       `${lead.analysis.score.total}%`,
       lead.analysis.totalRevenueYear,
       lead.analysis.paidToSpaceOwnerYear,
       lead.analysis.biffenRevenueYear
     ])
   ];
+  downloadCsvRows(rows, `${slug(search.name)}.csv`);
+}
+
+function downloadCsvRows(rows, filename) {
   const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
   const blob = new Blob([`${csv}\n`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `${slug(search.name)}.csv`;
+  anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -680,6 +1162,8 @@ function filteredLeads(leads) {
       lead.site.name,
       lead.site.address,
       lead.site.spaceType,
+      lead.criteria?.hasCarPark ? "car park" : "no car park",
+      lead.criteria?.nearbyHousing ? "nearby housing" : "no nearby housing",
       lead.contact?.emailAddress,
       lead.contact?.phoneNumber,
       statusLabel(lead.review?.status || "identified")
@@ -726,6 +1210,8 @@ function leadSortValue(lead) {
   if (state.leadSort === "email") return lead.contact?.emailAddress || "";
   if (state.leadSort === "phone") return lead.contact?.phoneNumber || "";
   if (state.leadSort === "type") return lead.site.spaceType;
+  if (state.leadSort === "carpark") return lead.criteria?.hasCarPark ? 1 : 0;
+  if (state.leadSort === "housing") return lead.criteria?.nearbyHousing ? 1 : 0;
   if (state.leadSort === "viability") return lead.analysis.score.total;
   if (state.leadSort === "revenue") return lead.analysis.totalRevenueYear;
   if (state.leadSort === "owner") return lead.analysis.paidToSpaceOwnerYear;
@@ -762,6 +1248,10 @@ function selectedSearch() {
 
 function selectedLead() {
   return selectedSearch()?.summary?.leads.find((lead) => lead.id === state.selectedLeadId);
+}
+
+function selectedProject() {
+  return state.projects.find((project) => project.id === state.selectedProjectId);
 }
 
 function addChip(key, rawValue) {
@@ -955,6 +1445,12 @@ function link(href, text) {
   return anchor;
 }
 
+function linkElement(href, text) {
+  const anchor = link(href, text);
+  anchor.addEventListener("click", (event) => event.stopPropagation());
+  return anchor;
+}
+
 function mailLink(email) {
   return link(`mailto:${email}`, email);
 }
@@ -1000,8 +1496,69 @@ function money(value) {
   }).format(value || 0);
 }
 
+function distanceLabel(value) {
+  return Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)} mi` : "";
+}
+
+function contractorLink(project) {
+  return new URL(`/contractor.html?token=${project.contractorToken}`, window.location.origin).toString();
+}
+
 function csvCell(value) {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let value = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      value += '"';
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(value.trim());
+      value = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(value.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      value = "";
+      continue;
+    }
+
+    value += char;
+  }
+
+  row.push(value.trim());
+  if (row.some(Boolean)) rows.push(row);
+  if (rows.length < 2) return [];
+
+  const headers = rows[0].map((header) => header.trim());
+  return rows.slice(1).map((cells) => {
+    const output = {};
+    headers.forEach((header, index) => {
+      output[header] = cells[index] ?? "";
+    });
+    return output;
+  });
 }
 
 function slug(value) {

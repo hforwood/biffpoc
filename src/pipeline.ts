@@ -9,6 +9,7 @@ import { FirecrawlClient } from "./clients/firecrawl.js";
 import { GoogleMapsClient } from "./clients/google-maps.js";
 import { loadAiFeedbackMemory } from "./feedback-memory.js";
 import { mockPlaces, mockSearchResult } from "./mock-data.js";
+import { analyzeSiteCriteria } from "./site-criteria.js";
 import { writeMapSnapshots } from "./snapshots.js";
 import type { ContactInfo, PlaceCandidate, ScanOptions, ScanSummary, ScrapedPage, SearchResult, SiteLead, StaticMapContext } from "./types.js";
 import { slugify, uniqueBy } from "./utils/text.js";
@@ -37,6 +38,12 @@ export async function runScan(options: ScanOptions): Promise<ScanSummary> {
     const staticMap = place.location
       ? await mapsClient.getStaticMapContext(place.location, options.mapsZoom, options.mapsSize, 2, !options.mock)
       : undefined;
+    const criteria = await analyzeSiteCriteria({
+      config,
+      site: place,
+      staticMap,
+      mock: options.mock
+    });
 
     const aiResult =
       options.useAi && !options.mock
@@ -67,6 +74,7 @@ export async function runScan(options: ScanOptions): Promise<ScanSummary> {
       contact: buildContactInfo(place, scrapedPages, searchResults),
       searchResults,
       scrapedPages,
+      criteria,
       staticMap: staticMapForStorage(staticMap),
       snapshots,
       analysis,
@@ -176,9 +184,13 @@ async function scrapeSupportingPages(
   }
 
   const urls = uniqueBy(
-    [place.websiteUri, ...searchResults.map((result) => result.link)].filter((url): url is string => Boolean(url)),
+    [
+      place.websiteUri,
+      ...guessedContactUrls(place.websiteUri),
+      ...searchResults.map((result) => result.link)
+    ].filter((url): url is string => Boolean(url)),
     (url) => url
-  ).slice(0, 3);
+  ).slice(0, 6);
 
   const pages: ScrapedPage[] = [];
   for (const url of urls) {
@@ -238,7 +250,7 @@ function buildContactInfo(
   const emailAddress = scrapedPages.flatMap((page) => page.emailAddresses)[0];
   const scrapedContactFormUrl = scrapedPages.flatMap((page) => page.contactFormUrls)[0];
   const searchContactFormUrl = searchResults.find((result) => contactUrlFrom(result.link))?.link;
-  const fallbackContactFormUrl = !phoneNumber && !emailAddress ? guessedContactUrl(place.websiteUri) : undefined;
+  const fallbackContactFormUrl = !phoneNumber || !emailAddress ? guessedContactUrl(place.websiteUri) : undefined;
   const contactFormUrl = scrapedContactFormUrl ?? searchContactFormUrl ?? fallbackContactFormUrl;
 
   return {
@@ -262,15 +274,22 @@ function contactUrlFrom(url: string): boolean {
 }
 
 function guessedContactUrl(websiteUri?: string): string | undefined {
-  if (!websiteUri) return undefined;
+  return guessedContactUrls(websiteUri)[0];
+}
+
+function guessedContactUrls(websiteUri?: string): string[] {
+  if (!websiteUri) return [];
   try {
-    const url = new URL(websiteUri);
-    url.pathname = "/contact";
-    url.search = "";
-    url.hash = "";
-    return url.toString();
+    const base = new URL(websiteUri);
+    return ["/contact", "/contact-us", "/about", "/find-us", "/get-in-touch", "/contacts"].map((pathname) => {
+      const url = new URL(base);
+      url.pathname = pathname;
+      url.search = "";
+      url.hash = "";
+      return url.toString();
+    });
   } catch {
-    return undefined;
+    return [];
   }
 }
 

@@ -4,7 +4,20 @@ import path from "node:path";
 import { readEnv } from "./config.js";
 import { databaseEnabled, getImageAssetDb } from "./db.js";
 import { appendAiFeedbackMemory } from "./feedback-memory.js";
-import { getSnapshotObject } from "./object-storage.js";
+import { importSitesIntoSearch } from "./import-sites.js";
+import { getLeadProfile, getOwnerProfileByToken, updateLeadProfile, updateOwnerProfileByToken } from "./lead-profiles.js";
+import { getSnapshotObject, type SnapshotKind } from "./object-storage.js";
+import {
+  createProject,
+  deleteProject,
+  getContractorProject,
+  getProjectWithSites,
+  listProjects,
+  syncProject,
+  updateContractorProjectSite,
+  updateProject,
+  updateProjectSite
+} from "./projects.js";
 import { addMoreToSearch, createSearchRun, getSearchRun, listSearchRuns } from "./search-runs.js";
 import { applyReviews, loadLatestSummary, updateReview } from "./storage.js";
 import type { ContactStatus, SiteReview } from "./types.js";
@@ -46,6 +59,80 @@ export async function getSearchPayload(searchId: string): Promise<unknown> {
       ...run,
       summary: run.summary ? await applyReviews(run.summary, webOutDir) : undefined
     }
+  };
+}
+
+export async function projectsPayload(): Promise<unknown> {
+  return { projects: await listProjects(webOutDir) };
+}
+
+export async function createProjectPayload(body: Record<string, unknown>): Promise<unknown> {
+  const postCodes = Array.isArray(body.postCodes) ? body.postCodes.map(String) : splitPostCodes(body.postCodes);
+  if (!postCodes.length) throw statusError("Add at least one postcode.", 400);
+  return {
+    project: await createProject(webOutDir, {
+      name: String(body.name ?? "").trim(),
+      postCodes
+    })
+  };
+}
+
+export async function getProjectPayload(projectId: string): Promise<unknown> {
+  const project = await getProjectWithSites(webOutDir, projectId);
+  if (!project) throw statusError("Project not found.", 404);
+  return { project };
+}
+
+export async function updateProjectPayload(projectId: string, body: Record<string, unknown>): Promise<unknown> {
+  return {
+    project: await updateProject(webOutDir, projectId, {
+      name: typeof body.name === "string" ? body.name : undefined,
+      postCodes: Array.isArray(body.postCodes) ? body.postCodes.map(String) : undefined
+    })
+  };
+}
+
+export async function deleteProjectPayload(projectId: string): Promise<unknown> {
+  await deleteProject(webOutDir, projectId);
+  return { ok: true };
+}
+
+export async function syncProjectPayload(projectId: string): Promise<unknown> {
+  return { project: await syncProject(webOutDir, projectId) };
+}
+
+export async function updateProjectSitePayload(
+  projectId: string,
+  leadId: string,
+  body: Record<string, unknown>
+): Promise<unknown> {
+  return {
+    project: await updateProjectSite(webOutDir, projectId, leadId, {
+      contractorStatus: typeof body.contractorStatus === "string" ? (body.contractorStatus as never) : undefined,
+      estimatedInstallationDate: typeof body.estimatedInstallationDate === "string" ? body.estimatedInstallationDate : undefined,
+      agreementFileUrl: typeof body.agreementFileUrl === "string" ? body.agreementFileUrl : undefined,
+      agreementFileName: typeof body.agreementFileName === "string" ? body.agreementFileName : undefined
+    })
+  };
+}
+
+export async function contractorProjectPayload(token: string): Promise<unknown> {
+  const project = await getContractorProject(webOutDir, token);
+  if (!project) throw statusError("Project not found.", 404);
+  return { project };
+}
+
+export async function updateContractorProjectSitePayload(
+  token: string,
+  leadId: string,
+  body: Record<string, unknown>
+): Promise<unknown> {
+  const status = body.status;
+  if (status !== "for_review" && status !== "rejected" && status !== "interested") {
+    throw statusError("Invalid contractor status.", 400);
+  }
+  return {
+    project: await updateContractorProjectSite(webOutDir, token, leadId, status)
   };
 }
 
@@ -101,6 +188,25 @@ export async function addMorePayload(searchId: string, body: Record<string, unkn
   };
 }
 
+export async function importSitesPayload(searchId: string, body: Record<string, unknown>): Promise<unknown> {
+  const rows = Array.isArray(body.rows)
+    ? body.rows.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
+    : [];
+  if (!rows.length) throw statusError("Upload at least one site row.", 400);
+
+  const search = await importSitesIntoSearch(webOutDir, searchId, rows, {
+    useAi: typeof body.useAi === "boolean" ? body.useAi : undefined,
+    mock: typeof body.mock === "boolean" ? body.mock : false
+  });
+
+  return {
+    search: {
+      ...search,
+      summary: search.summary ? await applyReviews(search.summary, webOutDir) : undefined
+    }
+  };
+}
+
 export async function updateLeadReviewPayload(leadId: string, body: Record<string, unknown>): Promise<unknown> {
   const patch = sanitizeReviewPatch(body as Partial<SiteReview>);
   const review = await updateReview(webOutDir, leadId, patch);
@@ -120,12 +226,43 @@ export async function updateLeadReviewPayload(leadId: string, body: Record<strin
   return { review };
 }
 
+export async function getLeadProfilePayload(leadId: string): Promise<unknown> {
+  const { search, lead, ownerUrlPath } = await getLeadProfile(webOutDir, leadId);
+  return { search, lead, ownerUrlPath };
+}
+
+export async function updateLeadProfilePayload(leadId: string, body: Record<string, unknown>): Promise<unknown> {
+  const { search, lead, ownerUrlPath } = await updateLeadProfile(webOutDir, leadId, body, "admin");
+  return {
+    search: {
+      ...search,
+      summary: search.summary ? await applyReviews(search.summary, webOutDir) : undefined
+    },
+    lead,
+    ownerUrlPath
+  };
+}
+
+export async function getOwnerProfilePayload(token: string): Promise<unknown> {
+  const { lead } = await getOwnerProfileByToken(webOutDir, token);
+  return {
+    lead: publicOwnerLead(lead)
+  };
+}
+
+export async function updateOwnerProfilePayload(token: string, body: Record<string, unknown>): Promise<unknown> {
+  const { lead } = await updateOwnerProfileByToken(webOutDir, token, body);
+  return {
+    lead: publicOwnerLead(lead)
+  };
+}
+
 export async function sendImageAsset(res: ApiResponse, leadId: string, kind: string): Promise<void> {
-  if (kind !== "original" && kind !== "annotated") throw statusError("Image not found.", 404);
+  if (!isSnapshotKind(kind)) throw statusError("Image not found.", 404);
 
   const asset =
     (await tryGetSnapshotObject(leadId, kind)) ??
-    (databaseEnabled() ? await getImageAssetDb(leadId, kind) : undefined);
+    (databaseEnabled() && isPrimaryImageKind(kind) ? await getImageAssetDb(leadId, kind) : undefined);
   if (!asset) throw statusError("Image not found.", 404);
 
   res.setHeader("Content-Type", asset.contentType);
@@ -196,8 +333,18 @@ function isContactStatus(value: unknown): value is ContactStatus {
     value === "call_booked" ||
     value === "rejected" ||
     value === "site_visit" ||
-    value === "closed_won"
+    value === "closed_won" ||
+    value === "registered"
   );
+}
+
+function publicOwnerLead(lead: Awaited<ReturnType<typeof getOwnerProfileByToken>>["lead"]) {
+  return {
+    id: lead.id,
+    site: lead.site,
+    contact: lead.contact,
+    profile: lead.profile
+  };
 }
 
 function parseJson(text: string): Record<string, unknown> {
@@ -213,7 +360,16 @@ function stringOrUndefined(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-async function tryGetSnapshotObject(leadId: string, kind: "original" | "annotated") {
+function splitPostCodes(value: unknown): string[] {
+  return typeof value === "string"
+    ? value
+        .split(/,|\n/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+}
+
+async function tryGetSnapshotObject(leadId: string, kind: SnapshotKind) {
   try {
     return await getSnapshotObject(leadId, kind);
   } catch (error) {
@@ -224,6 +380,14 @@ async function tryGetSnapshotObject(leadId: string, kind: "original" | "annotate
     );
     return undefined;
   }
+}
+
+function isSnapshotKind(kind: string): kind is SnapshotKind {
+  return isPrimaryImageKind(kind);
+}
+
+function isPrimaryImageKind(kind: string): kind is "original" | "annotated" {
+  return kind === "original" || kind === "annotated";
 }
 
 function statusError(message: string, statusCode: number): Error & { statusCode: number } {

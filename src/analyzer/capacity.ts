@@ -19,7 +19,7 @@ const CATEGORY_DEFAULTS: Array<{
     note: "Large-format retail sites often have perimeter edges, trolley bay margins, or rear elevations that may support a straight run."
   },
   {
-    match: /industrial|business park|office park|warehouse|logistics|depot|self-storage|builder/i,
+    match: /industrial|business park|office park|warehouse|logistics|depot|self-storage|storage site|builder|waste management|landfill/i,
     lengthM: 20,
     depthM: 2.2,
     placement: "service_yard",

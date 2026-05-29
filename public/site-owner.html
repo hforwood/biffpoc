@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Site Owner Form</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="public-page">
+    <main class="public-shell">
+      <header class="public-header">
+        <h1 id="ownerTitle">Site Profile</h1>
+        <p>Update the information Lockerly needs for this site.</p>
+      </header>
+
+      <section class="public-card">
+        <h2>Profile</h2>
+        <div class="profile-grid">
+          <label>
+            <span>Site Name</span>
+            <input data-profile-field="profile.siteName" />
+          </label>
+          <label>
+            <span>Site Website</span>
+            <input data-profile-field="profile.siteWebsite" />
+          </label>
+          <label>
+            <span>Site Contact E-Mail</span>
+            <input data-profile-field="profile.siteContactEmail" />
+          </label>
+          <label>
+            <span>Site Phone Number</span>
+            <input data-profile-field="profile.sitePhoneNumber" />
+          </label>
+          <label class="wide-field">
+            <span>Site Address</span>
+            <input data-profile-field="profile.siteAddress" />
+          </label>
+          <label class="wide-field">
+            <span>Contact Form</span>
+            <input data-profile-field="profile.contactForm" />
+          </label>
+        </div>
+      </section>
+
+      <section class="public-card">
+        <h2>Business Details</h2>
+        <div class="profile-grid">
+          <label>
+            <span>Main Point of Contact: Full Name</span>
+            <input data-profile-field="business.mainContactFullName" />
+          </label>
+          <label>
+            <span>Main Point of Contact: E-Mail</span>
+            <input data-profile-field="business.mainContactEmail" />
+          </label>
+          <label>
+            <span>Main Point of Contact: Phone Number</span>
+            <input data-profile-field="business.mainContactPhoneNumber" />
+          </label>
+          <label>
+            <span>Charity or Company</span>
+            <input data-profile-field="business.organisationType" />
+          </label>
+          <label class="wide-field">
+            <span>Company or Charity Registered Address</span>
+            <input data-profile-field="business.registeredAddress" />
+          </label>
+          <label>
+            <span>Companies House ID or Charity Reg Number</span>
+            <input data-profile-field="business.registryId" />
+          </label>
+          <label>
+            <span>Registered Company or Business Name</span>
+            <input data-profile-field="business.registeredName" />
+          </label>
+        </div>
+      </section>
+
+      <section class="public-card">
+        <h2>Site Details</h2>
+        <div class="profile-grid">
+          <label>
+            <span>Gate Combination Lock</span>
+            <select data-profile-field="siteDetails.gateHasCombinationLock" data-value-type="boolean">
+              <option value="">Unknown</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <span>Concrete Needs Building</span>
+            <select data-profile-field="siteDetails.concreteNeedsBuilding" data-value-type="boolean">
+              <option value="">Unknown</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <span>Access Schedule</span>
+            <input data-profile-field="siteDetails.accessSchedule" placeholder="24/7, 12 hour, or specific times" />
+          </label>
+          <label>
+            <span>Gated or Ungated - External</span>
+            <select data-profile-field="siteDetails.gatedExternal">
+              <option value="">Unknown</option>
+              <option value="gated">Gated</option>
+              <option value="ungated">Ungated</option>
+            </select>
+          </label>
+          <label>
+            <span>CCTV On-Site</span>
+            <select data-profile-field="siteDetails.cctvOnSite" data-value-type="boolean">
+              <option value="">Unknown</option>
+              <option value="true">True</option>
+              <option value="false">False</option>
+            </select>
+          </label>
+          <label class="wide-field">
+            <span>Site Videos or Images (URLs, one per line)</span>
+            <textarea data-profile-field="siteDetails.mediaUrls" data-value-type="lines" rows="3"></textarea>
+          </label>
+          <label class="wide-field">
+            <span>Additional Site Notes</span>
+            <textarea data-profile-field="siteDetails.additionalSiteNotes" rows="3"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <button id="ownerSave" class="primary-save" type="button">Save Details</button>
+      <p id="ownerMessage" class="public-message"></p>
+    </main>
+
+    <script src="/site-owner.js" type="module"></script>
+  </body>
+</html>

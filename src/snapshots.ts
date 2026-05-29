@@ -3,7 +3,13 @@ import path from "node:path";
 
 import { databaseEnabled, saveImageAssetDb } from "./db.js";
 import { objectStorageEnabled, saveSnapshotObject } from "./object-storage.js";
-import type { DeadSpaceCandidate, MapAnnotation, MapSnapshot, PlaceCandidate, StaticMapContext } from "./types.js";
+import type {
+  DeadSpaceCandidate,
+  MapAnnotation,
+  MapSnapshot,
+  PlaceCandidate,
+  StaticMapContext
+} from "./types.js";
 import { slugify } from "./utils/text.js";
 
 export async function writeMapSnapshots(params: {
@@ -40,6 +46,7 @@ export async function writeMapSnapshots(params: {
   });
 
   const version = Date.now();
+
   return {
     originalPath,
     originalUrl: persistedToApiStorage

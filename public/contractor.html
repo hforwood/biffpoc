@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contractor Project</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="public-page">
+    <main class="public-shell">
+      <header class="public-header">
+        <h1 id="projectName">Project Sites</h1>
+        <p>Review registered sites for this installation project.</p>
+      </header>
+
+      <section class="public-card">
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Site Name</th>
+                <th>Postcode</th>
+                <th>Distance</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="contractorRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="contractorDetail" class="public-card hidden">
+        <h2 id="contractorSiteName">Site</h2>
+        <div class="contractor-actions">
+          <button id="markInterested" class="outline" type="button">Interested</button>
+          <button id="markRejected" class="outline" type="button">Rejected</button>
+        </div>
+
+        <section class="map-panel">
+          <div class="map-panel-header">
+            <h3>Satellite Map</h3>
+            <a id="contractorMapOpen" class="outline-link" target="_blank" rel="noreferrer">Open Map</a>
+          </div>
+          <iframe id="contractorMap" title="Interactive site map" loading="lazy"></iframe>
+        </section>
+
+        <section class="map-panel">
+          <div class="map-panel-header">
+            <h3>Street View</h3>
+            <a id="contractorStreetOpen" class="outline-link" target="_blank" rel="noreferrer">Open Street View</a>
+          </div>
+          <iframe id="contractorStreet" title="Google Street View" loading="lazy"></iframe>
+        </section>
+
+        <dl id="contractorDetails" class="contractor-detail-list"></dl>
+        <div id="contractorMedia" class="media-links"></div>
+      </section>
+
+      <p id="contractorMessage" class="public-message"></p>
+    </main>
+
+    <script src="/contractor.js" type="module"></script>
+  </body>
+</html>

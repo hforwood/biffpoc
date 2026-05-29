@@ -40,6 +40,8 @@ export function printSummary(summary: ScanSummary): void {
       biffen: formatGbp(lead.analysis.biffenRevenueYear),
       score: lead.analysis.score.total,
       status: lead.review.status,
+      carPark: lead.criteria?.hasCarPark ? "true" : "false",
+      nearbyHousing: lead.criteria?.nearbyHousing ? "true" : "false",
       confidence: lead.analysis.confidence.toFixed(2),
       mode: lead.analysis.analysisMode
     }))
@@ -61,6 +63,8 @@ function toCsv(summary: ScanSummary): string {
       "longitude",
       "distance_miles",
       "contact_status",
+      "car_park",
+      "nearby_housing",
       "marked_good",
       "analysis_mode",
       "confidence",
@@ -93,6 +97,8 @@ function leadToCsvRow(lead: SiteLead): Array<string | number | undefined> {
     lead.site.location?.longitude,
     lead.site.distanceMiles?.toFixed(2),
     lead.review.status,
+    String(Boolean(lead.criteria?.hasCarPark)),
+    String(Boolean(lead.criteria?.nearbyHousing)),
     lead.review.isGood === undefined ? "" : String(lead.review.isGood),
     lead.analysis.analysisMode,
     lead.analysis.confidence.toFixed(2),

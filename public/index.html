@@ -27,6 +27,16 @@
           </svg>
           <span>Lists</span>
         </button>
+        <button id="projectsNav" class="side-link" type="button" data-view="projects">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 7h18"></path>
+            <path d="M6 3h12"></path>
+            <path d="M6 21h12"></path>
+            <path d="M4 7l2 14"></path>
+            <path d="M20 7l-2 14"></path>
+          </svg>
+          <span>Projects</span>
+        </button>
       </nav>
       <nav class="side-footer" aria-label="Account">
         <button class="side-link muted" type="button">
@@ -154,6 +164,10 @@
           </label>
           <div class="tool-buttons">
             <button id="addMoreButton" class="outline" type="button">+ Add More</button>
+            <button id="downloadTemplateButton" class="outline" type="button">Download Template</button>
+            <button id="uploadSitesButton" class="outline" type="button">Upload Sites</button>
+            <input id="uploadSitesInput" type="file" accept=".csv,text/csv" hidden />
+            <button id="analyzeUploadButton" class="outline" type="button" disabled>Analyze Upload</button>
             <button class="outline" type="button">☷ Filter</button>
             <button id="downloadCsvButton" class="outline" type="button">↓ Download CSV</button>
           </div>
@@ -178,6 +192,8 @@
                 <th data-lead-sort="email">E-Mail <span>↓</span></th>
                 <th data-lead-sort="phone">Phone Number <span>↓</span></th>
                 <th data-lead-sort="type">Site Type <span>↓</span></th>
+                <th data-lead-sort="carpark">Car Park <span>↓</span></th>
+                <th data-lead-sort="housing">Nearby Housing <span>↓</span></th>
                 <th data-lead-sort="viability">Site Viability <span>↓</span></th>
                 <th data-lead-sort="revenue">Est. Rev <span>↓</span></th>
                 <th data-lead-sort="owner">Site Owner Rev <span>↓</span></th>
@@ -185,6 +201,68 @@
               </tr>
             </thead>
             <tbody id="leadRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="projectsView" class="view hidden">
+        <header class="list-header">
+          <h1>Projects</h1>
+          <button id="createProjectButton" class="outline" type="button">Create New Project</button>
+        </header>
+
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Project Name</th>
+                <th>Postcodes</th>
+                <th>Sites</th>
+                <th>Contractor Link</th>
+              </tr>
+            </thead>
+            <tbody id="projectRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="projectDetailView" class="view hidden">
+        <header class="list-header">
+          <button id="backToProjects" class="back-button" type="button">← Back to Projects</button>
+          <h1 id="projectTitle">Project</h1>
+        </header>
+
+        <div class="list-tools">
+          <label class="quick-search project-link-field">
+            <span>↗</span>
+            <input id="contractorProjectLink" readonly />
+          </label>
+          <div class="tool-buttons">
+            <button id="copyContractorProjectLink" class="outline" type="button">Copy Contractor Link</button>
+            <button id="syncProjectButton" class="outline" type="button">Sync Sites</button>
+            <button id="deleteProjectButton" class="outline" type="button">Delete Project</button>
+          </div>
+        </div>
+
+        <nav class="drawer-tabs project-tabs" aria-label="Project sections">
+          <button class="active" type="button" data-project-tab="all">All Sites</button>
+          <button type="button" data-project-tab="contractor">Contractor Sites</button>
+        </nav>
+
+        <div class="table-card">
+          <table class="data-table sites-table">
+            <thead>
+              <tr>
+                <th>Site Name</th>
+                <th>Postcode</th>
+                <th>Distance</th>
+                <th>Contact Status</th>
+                <th>Contractor Status</th>
+                <th>Estimated Install</th>
+                <th>Agreement URL</th>
+              </tr>
+            </thead>
+            <tbody id="projectSiteRows"></tbody>
           </table>
         </div>
       </section>
@@ -204,16 +282,183 @@
         <div id="contactDetails" class="drawer-contact"></div>
       </section>
 
-      <nav class="tabs image-tabs" aria-label="Image mode">
-        <button type="button" data-tab="original">⊙ Normal Image</button>
-        <button class="active" type="button" data-tab="annotated">♙ AI Image</button>
+      <nav class="drawer-tabs" aria-label="Site profile sections">
+        <button class="active" type="button" data-drawer-tab="profile">Profile</button>
+        <button type="button" data-drawer-tab="business">Business Details</button>
+        <button type="button" data-drawer-tab="site">Site Details</button>
       </nav>
 
-      <div class="image-stage">
-        <img id="siteImage" alt="Site snapshot" />
-      </div>
+      <section class="drawer-panel active" data-drawer-panel="profile">
+        <div class="owner-link-row">
+          <label>
+            <span>Site Owner Form Link</span>
+            <input id="ownerFormLink" readonly />
+          </label>
+          <button id="copyOwnerFormLink" class="outline" type="button">Copy</button>
+          <a id="openOwnerFormLink" class="outline-link" target="_blank" rel="noreferrer">Open</a>
+        </div>
 
-      <p id="aiScoring" class="ai-scoring"></p>
+        <div class="profile-grid">
+          <label>
+            <span>Site Name</span>
+            <input data-profile-field="profile.siteName" />
+          </label>
+          <label>
+            <span>Site Website</span>
+            <input data-profile-field="profile.siteWebsite" />
+          </label>
+          <label>
+            <span>Site Contact E-Mail</span>
+            <input data-profile-field="profile.siteContactEmail" />
+          </label>
+          <label>
+            <span>Site Phone Number</span>
+            <input data-profile-field="profile.sitePhoneNumber" />
+          </label>
+          <label class="wide-field">
+            <span>Site Address</span>
+            <input data-profile-field="profile.siteAddress" />
+          </label>
+          <label class="wide-field">
+            <span>Contact Form</span>
+            <input data-profile-field="profile.contactForm" />
+          </label>
+        </div>
+      </section>
+
+      <section class="drawer-panel" data-drawer-panel="business">
+        <div class="profile-grid">
+          <label>
+            <span>Main Point of Contact: Full Name</span>
+            <input data-profile-field="business.mainContactFullName" />
+          </label>
+          <label>
+            <span>Main Point of Contact: E-Mail</span>
+            <input data-profile-field="business.mainContactEmail" />
+          </label>
+          <label>
+            <span>Main Point of Contact: Phone Number</span>
+            <input data-profile-field="business.mainContactPhoneNumber" />
+          </label>
+          <label>
+            <span>Charity or Company</span>
+            <input data-profile-field="business.organisationType" />
+          </label>
+          <label class="wide-field">
+            <span>Company or Charity Registered Address</span>
+            <input data-profile-field="business.registeredAddress" />
+          </label>
+          <label>
+            <span>Companies House ID or Charity Reg Number</span>
+            <input data-profile-field="business.registryId" />
+          </label>
+          <label>
+            <span>Registered Company or Business Name</span>
+            <input data-profile-field="business.registeredName" />
+          </label>
+        </div>
+      </section>
+
+      <section class="drawer-panel" data-drawer-panel="site">
+        <section class="map-panel">
+          <div class="map-panel-header">
+            <h3>Satellite Map</h3>
+            <a id="openMapButton" class="outline-link" target="_blank" rel="noreferrer">Open Map</a>
+          </div>
+          <iframe id="siteMapFrame" title="Interactive site map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </section>
+
+        <section class="map-panel">
+          <div class="map-panel-header">
+            <h3>Street View</h3>
+            <a id="openStreetViewButton" class="outline-link" target="_blank" rel="noreferrer">Open Street View</a>
+          </div>
+          <iframe id="streetViewFrame" title="Google Street View" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </section>
+
+        <p id="aiScoring" class="ai-scoring"></p>
+
+        <div class="profile-grid">
+          <label>
+            <span>Gate Combination Lock</span>
+            <select data-profile-field="siteDetails.gateHasCombinationLock" data-value-type="boolean">
+              <option value="">Unknown</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <span>Concrete Needs Building</span>
+            <select data-profile-field="siteDetails.concreteNeedsBuilding" data-value-type="boolean">
+              <option value="">Unknown</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            <span>Signed Agreement</span>
+            <select data-profile-field="siteDetails.signedAgreement" data-value-type="boolean">
+              <option value="">Unknown</option>
+              <option value="true">True</option>
+              <option value="false">False</option>
+            </select>
+          </label>
+          <label>
+            <span>Dates of Agreement</span>
+            <input data-profile-field="siteDetails.agreementStartDate" type="date" />
+          </label>
+          <label>
+            <span>Agreement End Date</span>
+            <input data-profile-field="siteDetails.agreementEndDate" type="date" />
+          </label>
+          <label>
+            <span>Date of Break Clause</span>
+            <input data-profile-field="siteDetails.breakClauseDate" type="date" />
+          </label>
+          <label>
+            <span>Access Schedule</span>
+            <input data-profile-field="siteDetails.accessSchedule" placeholder="24/7, 12 hour, or specific times" />
+          </label>
+          <label>
+            <span>Gated or Ungated - External</span>
+            <select data-profile-field="siteDetails.gatedExternal">
+              <option value="">Unknown</option>
+              <option value="gated">Gated</option>
+              <option value="ungated">Ungated</option>
+            </select>
+          </label>
+          <label>
+            <span>CCTV On-Site</span>
+            <select data-profile-field="siteDetails.cctvOnSite" data-value-type="boolean">
+              <option value="">Unknown</option>
+              <option value="true">True</option>
+              <option value="false">False</option>
+            </select>
+          </label>
+          <label>
+            <span>Distance from Postcode (Miles)</span>
+            <input data-profile-field="siteDetails.distanceFromPostcodeMiles" data-value-type="number" type="number" step="0.1" />
+          </label>
+          <label>
+            <span>Estimated Drive Minutes</span>
+            <input data-profile-field="siteDetails.estimatedDriveMinutes" data-value-type="number" type="number" step="1" />
+          </label>
+          <label class="wide-field">
+            <span>Rough Locker Placement</span>
+            <textarea data-profile-field="siteDetails.roughLockerPlacement" rows="2"></textarea>
+          </label>
+          <label class="wide-field">
+            <span>Site Videos or Images (URLs, one per line)</span>
+            <textarea data-profile-field="siteDetails.mediaUrls" data-value-type="lines" rows="3"></textarea>
+          </label>
+          <label class="wide-field">
+            <span>Additional Site Notes</span>
+            <textarea data-profile-field="siteDetails.additionalSiteNotes" rows="3"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <button id="saveProfile" class="primary-save" type="button">Save Profile</button>
 
       <section class="ai-feedback">
         <div class="feedback-header">
