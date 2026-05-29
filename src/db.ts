@@ -177,7 +177,12 @@ export async function getImageAssetDb(
 async function ensureSchema(): Promise<void> {
   if (!databaseEnabled()) return;
   schemaReady ??= initializeSchema();
-  await schemaReady;
+  try {
+    await schemaReady;
+  } catch (error) {
+    schemaReady = undefined;
+    throw explainDatabaseError(error);
+  }
 }
 
 async function initializeSchema(): Promise<void> {
@@ -235,7 +240,7 @@ async function initializeSchema(): Promise<void> {
 
 function getPool(): Pool {
   if (pool) return pool;
-  const connectionString = readEnv("DATABASE_URL");
+  const connectionString = databaseConnectionString();
   if (!connectionString) {
     throw new Error("DATABASE_URL is not configured.");
   }
@@ -247,4 +252,50 @@ function getPool(): Pool {
     allowExitOnIdle: true
   });
   return pool;
+}
+
+function databaseConnectionString(): string | undefined {
+  const explicitPooler = readEnv("SUPABASE_POOLER_DATABASE_URL");
+  if (explicitPooler) return explicitPooler;
+
+  const connectionString = readEnv("DATABASE_URL");
+  const poolerRegion = readEnv("SUPABASE_POOLER_REGION");
+  if (!connectionString || !poolerRegion) return connectionString;
+
+  const direct = parseSupabaseDirectUrl(connectionString);
+  if (!direct) return connectionString;
+
+  direct.url.hostname = `aws-0-${poolerRegion}.pooler.supabase.com`;
+  direct.url.port = direct.url.port === "5432" || !direct.url.port ? "6543" : direct.url.port;
+  direct.url.username = `postgres.${direct.projectRef}`;
+  return direct.url.toString();
+}
+
+function parseSupabaseDirectUrl(connectionString: string): { url: URL; projectRef: string } | undefined {
+  try {
+    const url = new URL(connectionString);
+    const match = /^db\.([a-z0-9]+)\.supabase\.co$/i.exec(url.hostname);
+    return match?.[1] ? { url, projectRef: match[1] } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function explainDatabaseError(error: unknown): Error {
+  const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+  const message = error instanceof Error ? error.message : String(error);
+  const connectionString = readEnv("DATABASE_URL");
+  const direct = connectionString ? parseSupabaseDirectUrl(connectionString) : undefined;
+
+  if (direct && (code === "ENOTFOUND" || code === "ENETUNREACH" || /getaddrinfo|network is unreachable/i.test(message))) {
+    return new Error(
+      [
+        "Supabase database is not reachable from Vercel because DATABASE_URL points at the direct db.*.supabase.co host.",
+        "Use the Supabase pooled connection string instead, or set SUPABASE_POOLER_REGION to the project region.",
+        `For this project, set SUPABASE_POOLER_REGION=eu-west-1 or use a pooler URL with host aws-0-eu-west-1.pooler.supabase.com and username postgres.${direct.projectRef}.`
+      ].join(" ")
+    );
+  }
+
+  return error instanceof Error ? error : new Error(message);
 }

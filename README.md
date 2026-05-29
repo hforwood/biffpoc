@@ -32,6 +32,8 @@ Fill in `.env` with:
 - `DATABASE_URL` for Supabase/Postgres persistence.
 - `OPENAI_API_KEY` for direct OpenAI AI-assisted site analysis, or `AI_GATEWAY_API_KEY` for Vercel AI Gateway.
 
+On Vercel, use the Supabase pooled connection string rather than the direct `db.<project>.supabase.co` URL. If you keep the direct URL in `DATABASE_URL`, also set `SUPABASE_POOLER_REGION` so the app can rewrite it to the pooler host. For the current Supabase project, the tested region is `eu-west-1`.
+
 The Google key must have these APIs enabled in Google Cloud:
 
 - Places API (New)
