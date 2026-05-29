@@ -2,6 +2,8 @@ import { readEnv } from "../../src/config.js";
 import { createSearchRun } from "../../src/search-runs.js";
 import { parseSpaceTypes } from "../../src/space-types.js";
 
+export const maxDuration = 300;
+
 interface VercelRequestLike {
   headers: Record<string, string | string[] | undefined>;
 }

@@ -110,12 +110,25 @@ app.post("/api/searches", async (req, res) => {
       useAi?: boolean;
       mock?: boolean;
     };
+    const postCodes = Array.isArray(body.postCodes) ? body.postCodes : [];
+    const counties = Array.isArray(body.counties) ? body.counties : [];
+    const radiusMiles = body.radiusMiles ? Number(body.radiusMiles) : undefined;
+
+    if (!postCodes.length && !counties.length) {
+      res.status(400).json({ error: "Enter at least one post code or select at least one county." });
+      return;
+    }
+
+    if (!radiusMiles || !Number.isFinite(radiusMiles) || radiusMiles <= 0) {
+      res.status(400).json({ error: "Enter a search radius in miles." });
+      return;
+    }
 
     const search = await createSearchRun(outDir, {
       name: String(body.name ?? "").trim(),
-      postCodes: Array.isArray(body.postCodes) ? body.postCodes : [],
-      counties: Array.isArray(body.counties) ? body.counties : [],
-      radiusMiles: body.radiusMiles ? Number(body.radiusMiles) : undefined,
+      postCodes,
+      counties,
+      radiusMiles,
       maxSites: body.maxSites ? Number(body.maxSites) : 20,
       limitPerType: body.limitPerType ? Number(body.limitPerType) : 2,
       spaceTypes: body.spaceTypes,

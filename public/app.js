@@ -25,9 +25,9 @@ const state = {
   leadSort: "site",
   leadSortDir: "asc",
   selectedLeadIds: new Set(),
-  postCodes: ["IP13 OBB", "N17 9QJ"],
+  postCodes: [],
   counties: [],
-  radiusMiles: 20,
+  radiusMiles: undefined,
   siteTypes: siteTypeOptions.map((type) => type.value)
 };
 
@@ -219,13 +219,26 @@ document.querySelectorAll(".tabs button").forEach((button) => {
 loadSearches();
 
 async function loadSearches() {
-  const response = await fetch("/api/searches");
-  const data = await response.json();
-  state.searches = data.searches || [];
-  render();
+  try {
+    const data = await fetchJson("/api/searches");
+    state.searches = data.searches || [];
+    render();
+  } catch (error) {
+    alert(error instanceof Error ? error.message : String(error));
+  }
 }
 
 async function runSearch() {
+  if (!state.postCodes.length && !state.counties.length) {
+    alert("Enter at least one post code or select at least one county.");
+    return;
+  }
+
+  if (!state.radiusMiles) {
+    alert("Enter a search radius in miles.");
+    return;
+  }
+
   if (!state.siteTypes.length) {
     alert("Select at least one site type.");
     return;
@@ -235,11 +248,11 @@ async function runSearch() {
   els.runSearchButton.textContent = "Running";
 
   const name = els.nameInput.value.trim() || defaultSearchName();
-  const maxSites = Number(els.numberSitesInput.value || 54);
+  const maxSites = Number(els.numberSitesInput.value || 20);
   const spaceTypes = state.siteTypes.length === siteTypeOptions.length ? "all" : state.siteTypes.join(",");
 
   try {
-    const response = await fetch("/api/searches", {
+    const data = await fetchJson("/api/searches", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -254,8 +267,6 @@ async function runSearch() {
         mock: isMockMode()
       })
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Search failed");
     state.searches = [data.search, ...state.searches.filter((search) => search.id !== data.search.id)];
     if (data.search.status === "error") {
       alert(data.search.error || "Search failed");
@@ -469,16 +480,11 @@ async function updateReview(leadId, patch) {
 }
 
 async function patchLeadReview(leadId, patch) {
-  const response = await fetch(`/api/leads/${leadId}/review`, {
+  const data = await fetchJson(`/api/leads/${leadId}/review`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch)
   });
-  const data = await response.json();
-  if (!response.ok) {
-    alert(data.error || "Review update failed");
-    return;
-  }
 
   const lead = selectedSearch()?.summary?.leads.find((item) => item.id === leadId);
   if (lead) lead.review = data.review;
@@ -517,7 +523,7 @@ async function addMoreSites() {
   els.addMoreButton.disabled = true;
   els.addMoreButton.textContent = "Adding";
   try {
-    const response = await fetch(`/api/searches/${search.id}/add-more`, {
+    const data = await fetchJson(`/api/searches/${search.id}/add-more`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -526,8 +532,6 @@ async function addMoreSites() {
         mock: isMockMode()
       })
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Add more failed");
 
     const nextSearch = data.search;
     state.searches = [nextSearch, ...state.searches.filter((item) => item.id !== nextSearch.id)];
@@ -759,8 +763,10 @@ function setRadiusFromInput() {
   const value = Number(els.radiusInput.value);
   if (Number.isFinite(value) && value > 0) {
     state.radiusMiles = value;
-    renderChips();
+  } else if (!els.radiusInput.value.trim()) {
+    state.radiusMiles = undefined;
   }
+  renderChips();
 }
 
 function chip(label, onRemove) {
@@ -982,6 +988,25 @@ function csvCell(value) {
 
 function slug(value) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "sites";
+}
+
+async function fetchJson(url, options) {
+  const response = await fetch(url, options);
+  const text = await response.text();
+  let data;
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    const snippet = text.trim().slice(0, 160) || response.statusText || "Empty response";
+    throw new Error(`Server returned ${response.status}: ${snippet}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || `Request failed with ${response.status}`);
+  }
+
+  return data;
 }
 
 function titleCase(value) {
