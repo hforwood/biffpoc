@@ -1,0 +1,32 @@
+{
+  "name": "biffpoc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "biffpoc": "./dist/src/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx src/cli.ts",
+    "web": "tsx src/server.ts",
+    "scan": "tsx src/cli.ts scan",
+    "schedule": "tsx src/cli.ts schedule",
+    "products": "tsx src/cli.ts products"
+  },
+  "dependencies": {
+    "ai": "^6.0.0",
+    "commander": "^14.0.2",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "node-cron": "^4.2.1",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.5",
+    "@types/node": "^24.10.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

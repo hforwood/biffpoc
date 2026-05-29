@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BiffPOC</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <nav class="side-nav" aria-label="Primary">
+        <button id="siteSearchNav" class="side-link" type="button" data-view="site-search">
+          <span class="icon">⌕</span>
+          <span>Site Search</span>
+        </button>
+        <button id="listsNav" class="side-link active" type="button" data-view="site-search">
+          <span class="icon">☷</span>
+          <span>Lists</span>
+        </button>
+      </nav>
+      <nav class="side-footer" aria-label="Account">
+        <button class="side-link muted" type="button"><span class="icon">⚙</span><span>Integrations</span></button>
+        <button class="side-link muted" type="button"><span class="icon">⚙</span><span>Settings</span></button>
+        <button class="side-link muted" type="button"><span class="icon">↪</span><span>Sign Out</span></button>
+      </nav>
+    </aside>
+
+    <main class="shell">
+      <section id="siteSearchView" class="view">
+        <header class="page-header compact">
+          <h1>Site Search</h1>
+        </header>
+
+        <form id="searchForm" class="search-form">
+          <label>
+            <span>Name Your Search</span>
+            <input id="nameInput" name="name" placeholder="Enter a name" />
+          </label>
+
+          <label>
+            <span>Post Codes</span>
+            <input id="postCodeInput" placeholder="Enter a post code" />
+            <div id="postCodeChips" class="chips"></div>
+          </label>
+
+          <label>
+            <span>Counties</span>
+            <select id="countyInput">
+              <option value="">All</option>
+              <option>Bedfordshire</option>
+              <option>Berkshire</option>
+              <option>Bristol</option>
+              <option>Buckinghamshire</option>
+              <option>Cambridgeshire</option>
+              <option>Cornwall</option>
+              <option>Cumbria</option>
+              <option>Derbyshire</option>
+              <option>Devon</option>
+              <option>Dorset</option>
+              <option>Essex</option>
+              <option>Gloucestershire</option>
+              <option>Greater London</option>
+              <option>Hampshire</option>
+              <option>Hertfordshire</option>
+              <option>Kent</option>
+              <option>Lancashire</option>
+              <option>Leicestershire</option>
+              <option>Norfolk</option>
+              <option>Northamptonshire</option>
+              <option>Nottinghamshire</option>
+              <option>Oxfordshire</option>
+              <option>Somerset</option>
+              <option>Suffolk</option>
+              <option>Surrey</option>
+              <option>Sussex</option>
+              <option>Warwickshire</option>
+              <option>Wiltshire</option>
+              <option>Yorkshire</option>
+            </select>
+            <div id="countyChips" class="chips"></div>
+          </label>
+
+          <label>
+            <span>Search Radius (Miles)</span>
+            <input id="radiusInput" name="radiusMiles" type="number" min="1" max="50" placeholder="Enter Miles" />
+            <div id="radiusChips" class="chips"></div>
+          </label>
+
+          <h2 class="site-details-title">Site Details</h2>
+
+          <label class="site-type-field">
+            <span>Site Type</span>
+            <select id="siteTypeInput">
+              <option value="">All</option>
+              <option value="football clubs">Football Club</option>
+              <option value="churches">Churches</option>
+              <option value="petrol stations / forecourts">Petrol Stations</option>
+              <option value="supermarket car parks">Supermarket Car Parks</option>
+              <option value="retail parks">Retail Parks</option>
+              <option value="council car parks">Council Car Parks</option>
+              <option value="industrial estates">Industrial Estates</option>
+              <option value="sports clubs">Sports Clubs</option>
+              <option value="pubs with large car parks">Pubs With Large Car Parks</option>
+            </select>
+            <div id="siteTypeChips" class="chips"></div>
+          </label>
+
+          <label class="number-sites-field">
+            <span>Number of Sites</span>
+            <input id="numberSitesInput" name="maxSites" type="number" min="1" max="250" placeholder="How many sites do you need?" />
+          </label>
+
+          <div class="form-actions">
+            <label class="inline-check runtime-control">
+              <input id="mockInput" type="checkbox" />
+              <span>Mock</span>
+            </label>
+            <label class="inline-check runtime-control">
+              <input id="aiInput" type="checkbox" checked />
+              <span>AI</span>
+            </label>
+            <button id="runSearchButton" type="submit">Run Search</button>
+          </div>
+        </form>
+
+        <section class="searches-section">
+          <div class="section-title">
+            <h2>Your Searches</h2>
+          </div>
+          <div class="table-tools">
+            <label class="quick-search">
+              <span>⌕</span>
+              <input id="searchesFilter" placeholder="Search by anything...." />
+            </label>
+            <button class="outline" type="button">☷ Filter</button>
+          </div>
+          <div class="table-card">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th data-search-sort="name">Site Name <span>↓</span></th>
+                  <th data-search-sort="status">Research Status <span>↓</span></th>
+                  <th>Post Codes <span>↓</span></th>
+                  <th data-search-sort="sites">Sites Found <span>↓</span></th>
+                  <th data-search-sort="identified">Identified <span>↓</span></th>
+                  <th data-search-sort="contacted">Contacted <span>↓</span></th>
+                  <th data-search-sort="closed">Closed Won <span>↓</span></th>
+                  <th data-search-sort="biffen">Biff Rev <span>↓</span></th>
+                </tr>
+              </thead>
+              <tbody id="searchRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="listView" class="view hidden">
+        <header class="list-header">
+          <button id="backToSearch" class="back-button" type="button">← Back to Site Search</button>
+          <h1 id="listTitle">Sites</h1>
+        </header>
+
+        <div class="list-tools">
+          <label class="quick-search">
+            <span>⌕</span>
+            <input id="leadFilter" placeholder="Search by anything...." />
+          </label>
+          <div class="tool-buttons">
+            <button class="outline" type="button">☷ Filter</button>
+            <button id="downloadCsvButton" class="outline" type="button">↓ Download CSV</button>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <table class="data-table sites-table">
+            <thead>
+              <tr>
+                <th data-lead-sort="site">Site Name <span>↓</span></th>
+                <th data-lead-sort="status">Status <span>↓</span></th>
+                <th data-lead-sort="email">E-Mail <span>↓</span></th>
+                <th data-lead-sort="phone">Phone Number <span>↓</span></th>
+                <th data-lead-sort="type">Site Type <span>↓</span></th>
+                <th data-lead-sort="viability">Site Viability <span>↓</span></th>
+                <th data-lead-sort="revenue">Est. Rev <span>↓</span></th>
+                <th data-lead-sort="owner">Site Owner Rev <span>↓</span></th>
+                <th data-lead-sort="biff">Biff Rev <span>↓</span></th>
+              </tr>
+            </thead>
+            <tbody id="leadRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <aside id="drawer" class="drawer" aria-hidden="true">
+      <div class="drawer-header">
+        <h2 id="drawerTitle">Site</h2>
+        <button id="closeDrawer" class="drawer-close" type="button" aria-label="Close">×</button>
+      </div>
+
+      <section class="drawer-meta">
+        <label class="drawer-status-field">
+          <span>Contact Status</span>
+          <select id="drawerStatus"></select>
+        </label>
+        <div id="contactDetails" class="drawer-contact"></div>
+      </section>
+
+      <nav class="tabs image-tabs" aria-label="Image mode">
+        <button type="button" data-tab="original">⊙ Normal Image</button>
+        <button class="active" type="button" data-tab="annotated">♙ AI Image</button>
+      </nav>
+
+      <div class="image-stage">
+        <img id="siteImage" alt="Site snapshot" />
+      </div>
+
+      <p id="aiScoring" class="ai-scoring"></p>
+
+      <section class="ai-feedback">
+        <div class="feedback-header">
+          <h3>AI Feedback</h3>
+          <div class="feedback-buttons">
+            <button id="drawerGood" type="button">Good</button>
+            <button id="drawerBad" type="button">Not Good</button>
+          </div>
+        </div>
+        <textarea
+          id="feedbackNotes"
+          rows="3"
+          placeholder="Tell the AI why this site is or is not good..."
+        ></textarea>
+        <button id="saveFeedback" class="outline" type="button">Save Feedback</button>
+      </section>
+    </aside>
+    <div id="scrim" class="scrim"></div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
