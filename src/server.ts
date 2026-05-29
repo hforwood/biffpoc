@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { defaultScanOptions, readEnv } from "./config.js";
 import { databaseEnabled, getImageAssetDb } from "./db.js";
 import { appendAiFeedbackMemory } from "./feedback-memory.js";
+import { getSnapshotObject } from "./object-storage.js";
 import { runScan } from "./pipeline.js";
 import { parseSpaceTypes } from "./space-types.js";
 import { applyReviews, loadLatestSummary, updateReview } from "./storage.js";
@@ -15,7 +16,7 @@ import type { ContactStatus, SiteReview } from "./types.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 const publicDir = path.join(rootDir, "public");
-const outDir = path.resolve(process.cwd(), readEnv("WEB_OUT_DIR") ?? "runs/web");
+const outDir = path.resolve(process.cwd(), readEnv("WEB_OUT_DIR") ?? defaultWebOutDir());
 const port = Number.parseInt(readEnv("PORT") ?? "4173", 10);
 
 const app = express();
@@ -23,19 +24,16 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/api/assets/:leadId/:kind", async (req, res, next) => {
-  if (!databaseEnabled()) {
+  const kind = req.params.kind === "original" || req.params.kind === "annotated" ? req.params.kind : undefined;
+  if (!kind) {
     next();
     return;
   }
 
-  const kind = req.params.kind === "original" || req.params.kind === "annotated" ? req.params.kind : undefined;
-  if (!kind) {
-    res.status(404).send("Not found");
-    return;
-  }
-
   try {
-    const asset = await getImageAssetDb(req.params.leadId, kind);
+    const asset =
+      (await tryGetSnapshotObject(req.params.leadId, kind)) ??
+      (databaseEnabled() ? await getImageAssetDb(req.params.leadId, kind) : undefined);
     if (!asset) {
       res.status(404).send("Not found");
       return;
@@ -248,6 +246,23 @@ app.use((_req, res) => {
 app.listen(port, () => {
   console.log(`BiffPOC interface running at http://localhost:${port}`);
 });
+
+function defaultWebOutDir(): string {
+  return readEnv("VERCEL") ? "/tmp/biffpoc-web" : "runs/web";
+}
+
+async function tryGetSnapshotObject(leadId: string, kind: "original" | "annotated") {
+  try {
+    return await getSnapshotObject(leadId, kind);
+  } catch (error) {
+    console.warn(
+      `Supabase S3 snapshot read failed; falling back to Postgres image storage: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    return undefined;
+  }
+}
 
 function sanitizeReviewPatch(input: Partial<SiteReview>): Partial<SiteReview> {
   const patch: Partial<SiteReview> = {};

@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { databaseEnabled, saveImageAssetDb } from "./db.js";
+import { objectStorageEnabled, saveSnapshotObject } from "./object-storage.js";
 import type { DeadSpaceCandidate, MapAnnotation, MapSnapshot, PlaceCandidate, StaticMapContext } from "./types.js";
 import { slugify } from "./utils/text.js";
 
@@ -32,24 +33,63 @@ export async function writeMapSnapshots(params: {
   });
   await fs.writeFile(annotatedPath, annotated, "utf8");
 
-  if (databaseEnabled()) {
-    await Promise.all([
-      saveImageAssetDb(params.leadId, "original", original.contentType, original.data),
-      saveImageAssetDb(params.leadId, "annotated", "image/svg+xml", Buffer.from(annotated, "utf8"))
-    ]);
-  }
+  const persistedToApiStorage = await persistSnapshots({
+    leadId: params.leadId,
+    original,
+    annotated: Buffer.from(annotated, "utf8")
+  });
 
   const version = Date.now();
   return {
     originalPath,
-    originalUrl: databaseEnabled()
+    originalUrl: persistedToApiStorage
       ? `/api/assets/${encodeURIComponent(params.leadId)}/original?v=${version}`
       : `/assets/${path.basename(originalPath)}?v=${version}`,
     annotatedPath,
-    annotatedUrl: databaseEnabled()
+    annotatedUrl: persistedToApiStorage
       ? `/api/assets/${encodeURIComponent(params.leadId)}/annotated?v=${version}`
       : `/assets/${path.basename(annotatedPath)}?v=${version}`
   };
+}
+
+async function persistSnapshots(params: {
+  leadId: string;
+  original: { data: Buffer; contentType: string };
+  annotated: Buffer;
+}): Promise<boolean> {
+  if (objectStorageEnabled()) {
+    try {
+      await Promise.all([
+        saveSnapshotObject({
+          leadId: params.leadId,
+          kind: "original",
+          contentType: params.original.contentType,
+          data: params.original.data
+        }),
+        saveSnapshotObject({
+          leadId: params.leadId,
+          kind: "annotated",
+          contentType: "image/svg+xml",
+          data: params.annotated
+        })
+      ]);
+      return true;
+    } catch (error) {
+      console.warn(
+        `Supabase S3 snapshot upload failed; falling back to Postgres image storage if available: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
+
+  if (!databaseEnabled()) return false;
+
+  await Promise.all([
+    saveImageAssetDb(params.leadId, "original", params.original.contentType, params.original.data),
+    saveImageAssetDb(params.leadId, "annotated", "image/svg+xml", params.annotated)
+  ]);
+  return true;
 }
 
 async function originalImage(

@@ -10,7 +10,7 @@ import { GoogleMapsClient } from "./clients/google-maps.js";
 import { loadAiFeedbackMemory } from "./feedback-memory.js";
 import { mockPlaces, mockSearchResult } from "./mock-data.js";
 import { writeMapSnapshots } from "./snapshots.js";
-import type { ContactInfo, PlaceCandidate, ScanOptions, ScanSummary, ScrapedPage, SearchResult, SiteLead } from "./types.js";
+import type { ContactInfo, PlaceCandidate, ScanOptions, ScanSummary, ScrapedPage, SearchResult, SiteLead, StaticMapContext } from "./types.js";
 import { slugify, uniqueBy } from "./utils/text.js";
 import { writeReports } from "./report.js";
 
@@ -67,7 +67,7 @@ export async function runScan(options: ScanOptions): Promise<ScanSummary> {
       contact: buildContactInfo(place, scrapedPages, searchResults),
       searchResults,
       scrapedPages,
-      staticMap,
+      staticMap: staticMapForStorage(staticMap),
       snapshots,
       analysis,
       review: {
@@ -202,9 +202,16 @@ async function safeAiAnalysis(
 ): ReturnType<typeof analyzeWithAi> {
   try {
     return await analyzeWithAi(config, place, staticMap, feedbackMemory);
-  } catch {
+  } catch (error) {
+    console.warn(`AI analysis failed for "${place.name}": ${error instanceof Error ? error.message : String(error)}`);
     return undefined;
   }
+}
+
+function staticMapForStorage(staticMap: StaticMapContext | undefined): StaticMapContext | undefined {
+  if (!staticMap) return undefined;
+  const { imageBase64: _imageBase64, ...metadata } = staticMap;
+  return metadata;
 }
 
 function mergeScrapedPhone(place: PlaceCandidate, scrapedPages: ScrapedPage[]): PlaceCandidate {

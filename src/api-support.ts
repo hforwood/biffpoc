@@ -4,11 +4,12 @@ import path from "node:path";
 import { readEnv } from "./config.js";
 import { databaseEnabled, getImageAssetDb } from "./db.js";
 import { appendAiFeedbackMemory } from "./feedback-memory.js";
+import { getSnapshotObject } from "./object-storage.js";
 import { addMoreToSearch, createSearchRun, getSearchRun, listSearchRuns } from "./search-runs.js";
 import { applyReviews, loadLatestSummary, updateReview } from "./storage.js";
 import type { ContactStatus, SiteReview } from "./types.js";
 
-export const webOutDir = path.resolve(process.cwd(), readEnv("WEB_OUT_DIR") ?? "runs/web");
+export const webOutDir = path.resolve(process.cwd(), readEnv("WEB_OUT_DIR") ?? defaultWebOutDir());
 
 export interface ApiRequest extends IncomingMessage {
   body?: unknown;
@@ -120,10 +121,11 @@ export async function updateLeadReviewPayload(leadId: string, body: Record<strin
 }
 
 export async function sendImageAsset(res: ApiResponse, leadId: string, kind: string): Promise<void> {
-  if (!databaseEnabled()) throw statusError("Image storage is not configured.", 404);
   if (kind !== "original" && kind !== "annotated") throw statusError("Image not found.", 404);
 
-  const asset = await getImageAssetDb(leadId, kind);
+  const asset =
+    (await tryGetSnapshotObject(leadId, kind)) ??
+    (databaseEnabled() ? await getImageAssetDb(leadId, kind) : undefined);
   if (!asset) throw statusError("Image not found.", 404);
 
   res.setHeader("Content-Type", asset.contentType);
@@ -211,8 +213,25 @@ function stringOrUndefined(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+async function tryGetSnapshotObject(leadId: string, kind: "original" | "annotated") {
+  try {
+    return await getSnapshotObject(leadId, kind);
+  } catch (error) {
+    console.warn(
+      `Supabase S3 snapshot read failed; falling back to Postgres image storage: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    return undefined;
+  }
+}
+
 function statusError(message: string, statusCode: number): Error & { statusCode: number } {
   const error = new Error(message) as Error & { statusCode: number };
   error.statusCode = statusCode;
   return error;
+}
+
+function defaultWebOutDir(): string {
+  return readEnv("VERCEL") ? "/tmp/biffpoc-web" : "runs/web";
 }

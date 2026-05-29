@@ -25,7 +25,7 @@ export async function analyzeWithAi(
       "Height restrictions, canopies, underground/covered parking, green-space views, entrances, fire routes, and sightlines reduce viability.",
       "Return cautious dimensions in metres. Include annotation line coordinates as normalized image positions from 0 to 1 for red-line overlay drawing. If the imagery/context is weak, lower confidence instead of inventing certainty."
     ].join(" "),
-    stopWhen: stepCountIs(4),
+    stopWhen: stepCountIs(8),
     tools: {
       productMatrix: tool({
         description: "Returns BT Lockers dimensions and annual revenue data.",
@@ -35,7 +35,7 @@ export async function analyzeWithAi(
       scaleContext: tool({
         description: "Returns the Google Static Maps scale context for the current site.",
         inputSchema: z.object({}),
-        execute: async () => staticMap ?? { unavailable: true }
+        execute: async () => staticMapMetadata(staticMap)
       })
     },
     output: Output.object({
@@ -94,4 +94,22 @@ function modelFromConfig(config: ApiConfig) {
   }
 
   return config.aiModel;
+}
+
+function staticMapMetadata(staticMap: StaticMapContext | undefined) {
+  if (!staticMap) return { unavailable: true };
+
+  return {
+    url: staticMap.url,
+    center: staticMap.center,
+    zoom: staticMap.zoom,
+    cssSizePx: staticMap.cssSizePx,
+    scale: staticMap.scale,
+    widthMeters: staticMap.widthMeters,
+    heightMeters: staticMap.heightMeters,
+    metersPerCssPixel: staticMap.metersPerCssPixel,
+    metersPerReturnedPixel: staticMap.metersPerReturnedPixel,
+    contentType: staticMap.contentType,
+    imageProvided: Boolean(staticMap.imageBase64)
+  };
 }
