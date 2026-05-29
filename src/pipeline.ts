@@ -25,7 +25,7 @@ export async function runScan(options: ScanOptions): Promise<ScanSummary> {
     ? mockPlaces(options.area || options.county)
     : await discoverPlaces(options, mapsClient, searchClient);
 
-  const deduped = uniqueBy(places, (place) => place.id ?? `${place.name}:${place.address ?? ""}`).slice(0, options.maxSites);
+  const deduped = uniqueBy(places, candidateKey).slice(0, options.maxSites);
 
   const leads: SiteLead[] = [];
   for (const place of deduped) {
@@ -111,9 +111,14 @@ async function discoverPlaces(
 
     const placesQuery = origin ? spaceType : `${spaceType} in ${options.area}, UK`;
     allPlaces.push(...(await mapsClient.textSearch(placesQuery, spaceType, options.limitPerType, radiusContext)));
+    if (uniqueBy(allPlaces, candidateKey).length >= options.maxSites) break;
   }
 
   return allPlaces;
+}
+
+function candidateKey(place: PlaceCandidate): string {
+  return place.id ?? `${place.name}:${place.address ?? ""}`;
 }
 
 async function safeGeocodeArea(

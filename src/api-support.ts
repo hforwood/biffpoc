@@ -158,7 +158,7 @@ export function sendJson(res: ApiResponse, payload: unknown, status = 200): void
 export function sendError(res: ApiResponse, error: unknown): void {
   const status = error instanceof Error && "statusCode" in error ? Number(error.statusCode) : 500;
   res.status(Number.isFinite(status) ? status : 500).json({
-    error: error instanceof Error ? error.message : String(error)
+    error: errorMessage(error)
   });
 }
 
@@ -234,4 +234,24 @@ function statusError(message: string, statusCode: number): Error & { statusCode:
 
 function defaultWebOutDir(): string {
   return readEnv("VERCEL") ? "/tmp/biffpoc-web" : "runs/web";
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const maybeMessage = (error as { message?: unknown; error?: unknown; reason?: unknown; code?: unknown }).message;
+    if (typeof maybeMessage === "string") return maybeMessage;
+    const maybeError = (error as { error?: unknown }).error;
+    if (typeof maybeError === "string") return maybeError;
+    const maybeReason = (error as { reason?: unknown }).reason;
+    if (typeof maybeReason === "string") return maybeReason;
+    const maybeCode = (error as { code?: unknown }).code;
+    if (typeof maybeCode === "string") return maybeCode;
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "Unknown error";
+    }
+  }
+  return String(error);
 }

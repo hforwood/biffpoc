@@ -236,7 +236,7 @@ async function loadSearches() {
     state.searches = data.searches || [];
     render();
   } catch (error) {
-    alert(error instanceof Error ? error.message : String(error));
+    alert(errorMessage(error));
   }
 }
 
@@ -286,7 +286,7 @@ async function runSearch() {
       openSearch(data.search.id);
     }
   } catch (error) {
-    alert(error instanceof Error ? error.message : String(error));
+    alert(errorMessage(error));
   } finally {
     els.runSearchButton.disabled = false;
     els.runSearchButton.textContent = "Run Search";
@@ -560,7 +560,7 @@ async function addMoreSites() {
     }
     render();
   } catch (error) {
-    alert(error instanceof Error ? error.message : String(error));
+    alert(errorMessage(error));
   } finally {
     els.addMoreButton.disabled = false;
     els.addMoreButton.textContent = "+ Add More";
@@ -1021,10 +1021,32 @@ async function fetchJson(url, options) {
   }
 
   if (!response.ok) {
-    throw new Error(data.error || `Request failed with ${response.status}`);
+    throw new Error(responseErrorMessage(data, response));
   }
 
   return data;
+}
+
+function errorMessage(error) {
+  if (error instanceof Error) return error.message;
+  return responseErrorMessage({ error }, { status: "unknown", statusText: "" });
+}
+
+function responseErrorMessage(data, response) {
+  const raw = data?.error ?? data?.message ?? data;
+  if (typeof raw === "string") return raw;
+
+  if (raw && typeof raw === "object") {
+    const message = raw.message || raw.error || raw.reason || raw.code;
+    if (typeof message === "string") return message;
+    try {
+      return JSON.stringify(raw);
+    } catch {
+      return `Request failed with ${response.status}`;
+    }
+  }
+
+  return response?.statusText || `Request failed with ${response.status}`;
 }
 
 function titleCase(value) {
