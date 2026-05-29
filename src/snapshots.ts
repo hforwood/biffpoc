@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { databaseEnabled, saveImageAssetDb } from "./db.js";
 import type { DeadSpaceCandidate, MapAnnotation, MapSnapshot, PlaceCandidate, StaticMapContext } from "./types.js";
 import { slugify } from "./utils/text.js";
 
@@ -31,11 +32,23 @@ export async function writeMapSnapshots(params: {
   });
   await fs.writeFile(annotatedPath, annotated, "utf8");
 
+  if (databaseEnabled()) {
+    await Promise.all([
+      saveImageAssetDb(params.leadId, "original", original.contentType, original.data),
+      saveImageAssetDb(params.leadId, "annotated", "image/svg+xml", Buffer.from(annotated, "utf8"))
+    ]);
+  }
+
+  const version = Date.now();
   return {
     originalPath,
-    originalUrl: `/assets/${path.basename(originalPath)}?v=${Date.now()}`,
+    originalUrl: databaseEnabled()
+      ? `/api/assets/${encodeURIComponent(params.leadId)}/original?v=${version}`
+      : `/assets/${path.basename(originalPath)}?v=${version}`,
     annotatedPath,
-    annotatedUrl: `/assets/${path.basename(annotatedPath)}?v=${Date.now()}`
+    annotatedUrl: databaseEnabled()
+      ? `/api/assets/${encodeURIComponent(params.leadId)}/annotated?v=${version}`
+      : `/assets/${path.basename(annotatedPath)}?v=${version}`
   };
 }
 

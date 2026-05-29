@@ -60,6 +60,7 @@ const els = {
   clearSelection: document.querySelector("#clearSelection"),
   backToSearch: document.querySelector("#backToSearch"),
   listTitle: document.querySelector("#listTitle"),
+  addMoreButton: document.querySelector("#addMoreButton"),
   downloadCsvButton: document.querySelector("#downloadCsvButton"),
   drawer: document.querySelector("#drawer"),
   scrim: document.querySelector("#scrim"),
@@ -169,6 +170,7 @@ els.leadFilter.addEventListener("input", () => {
 });
 
 els.backToSearch.addEventListener("click", showSearchView);
+els.addMoreButton.addEventListener("click", addMoreSites);
 els.downloadCsvButton.addEventListener("click", downloadSelectedCsv);
 els.leadSelectAll.addEventListener("change", () => {
   const visibleLeads = sortedLeads(filteredLeads(selectedSearch()?.summary?.leads || []));
@@ -496,6 +498,50 @@ async function bulkUpdateStatus() {
   } finally {
     els.bulkUpdateStatus.disabled = false;
     els.bulkUpdateStatus.textContent = "Update Status";
+  }
+}
+
+async function addMoreSites() {
+  const search = selectedSearch();
+  if (!search) return;
+
+  const raw = window.prompt("How many more sites do you need?", "10");
+  if (raw === null) return;
+  const count = Number(raw);
+  if (!Number.isFinite(count) || count < 1) {
+    alert("Enter a positive number.");
+    return;
+  }
+
+  const beforeCount = search.summary?.leads?.length ?? 0;
+  els.addMoreButton.disabled = true;
+  els.addMoreButton.textContent = "Adding";
+  try {
+    const response = await fetch(`/api/searches/${search.id}/add-more`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        count,
+        useAi: els.aiInput?.checked ?? true,
+        mock: isMockMode()
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Add more failed");
+
+    const nextSearch = data.search;
+    state.searches = [nextSearch, ...state.searches.filter((item) => item.id !== nextSearch.id)];
+    state.selectedSearchId = nextSearch.id;
+    const afterCount = nextSearch.summary?.leads?.length ?? 0;
+    if (afterCount === beforeCount) {
+      alert(nextSearch.error || "No new non-duplicate sites found.");
+    }
+    render();
+  } catch (error) {
+    alert(error instanceof Error ? error.message : String(error));
+  } finally {
+    els.addMoreButton.disabled = false;
+    els.addMoreButton.textContent = "+ Add More";
   }
 }
 

@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { appendAiFeedbackDb, databaseEnabled, loadAiFeedbackDb } from "./db.js";
+
 export interface AiFeedbackEntry {
   leadId: string;
   siteName?: string;
@@ -14,19 +16,24 @@ export interface AiFeedbackEntry {
 export async function appendAiFeedbackMemory(outDir: string, entry: Omit<AiFeedbackEntry, "createdAt">): Promise<void> {
   if (entry.isGood === undefined && !entry.notes?.trim()) return;
 
-  const entries = await readAiFeedbackMemory(outDir);
   const next: AiFeedbackEntry = {
     ...entry,
     notes: entry.notes?.trim(),
     createdAt: new Date().toISOString()
   };
 
+  if (databaseEnabled()) {
+    await appendAiFeedbackDb(next);
+    return;
+  }
+
+  const entries = await readAiFeedbackMemory(outDir);
   await fs.mkdir(outDir, { recursive: true });
   await fs.writeFile(memoryPath(outDir), `${JSON.stringify([next, ...entries].slice(0, 200), null, 2)}\n`, "utf8");
 }
 
 export async function loadAiFeedbackMemory(outDir: string, limit = 20): Promise<string[]> {
-  const entries = await readAiFeedbackMemory(outDir);
+  const entries = databaseEnabled() ? await loadAiFeedbackDb(limit) : await readAiFeedbackMemory(outDir);
   return entries.slice(0, limit).map((entry) => {
     const verdict = entry.isGood === true ? "GOOD" : entry.isGood === false ? "NOT GOOD" : "UNRATED";
     const site = [entry.siteName, entry.spaceType, entry.address].filter(Boolean).join(" | ");

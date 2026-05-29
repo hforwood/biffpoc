@@ -4,11 +4,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { defaultScanOptions, readEnv } from "./config.js";
+import { databaseEnabled, getImageAssetDb } from "./db.js";
 import { appendAiFeedbackMemory } from "./feedback-memory.js";
 import { runScan } from "./pipeline.js";
 import { parseSpaceTypes } from "./space-types.js";
 import { applyReviews, loadLatestSummary, updateReview } from "./storage.js";
-import { createSearchRun, getSearchRun, listSearchRuns } from "./search-runs.js";
+import { addMoreToSearch, createSearchRun, getSearchRun, listSearchRuns } from "./search-runs.js";
 import type { ContactStatus, SiteReview } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -20,6 +21,33 @@ const port = Number.parseInt(readEnv("PORT") ?? "4173", 10);
 const app = express();
 
 app.use(express.json({ limit: "1mb" }));
+
+app.get("/api/assets/:leadId/:kind", async (req, res, next) => {
+  if (!databaseEnabled()) {
+    next();
+    return;
+  }
+
+  const kind = req.params.kind === "original" || req.params.kind === "annotated" ? req.params.kind : undefined;
+  if (!kind) {
+    res.status(404).send("Not found");
+    return;
+  }
+
+  try {
+    const asset = await getImageAssetDb(req.params.leadId, kind);
+    if (!asset) {
+      res.status(404).send("Not found");
+      return;
+    }
+    res.type(asset.contentType);
+    res.set("Cache-Control", "private, max-age=300");
+    res.send(asset.data);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
 app.use("/assets", express.static(path.join(outDir, "assets")));
 app.use(express.static(publicDir));
 
@@ -93,6 +121,35 @@ app.post("/api/searches", async (req, res) => {
       spaceTypes: body.spaceTypes,
       useAi: body.useAi ?? !readEnv("DISABLE_AI"),
       mock: Boolean(body.mock)
+    });
+
+    res.json({
+      search: {
+        ...search,
+        summary: search.summary ? await applyReviews(search.summary, outDir) : undefined
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+app.post("/api/searches/:searchId/add-more", async (req, res) => {
+  try {
+    const body = req.body as {
+      count?: number;
+      useAi?: boolean;
+      mock?: boolean;
+    };
+    const count = Number(body.count ?? 10);
+    if (!Number.isFinite(count) || count < 1) {
+      res.status(400).json({ error: "Count must be a positive number." });
+      return;
+    }
+
+    const search = await addMoreToSearch(outDir, req.params.searchId, count, {
+      useAi: body.useAi,
+      mock: body.mock
     });
 
     res.json({

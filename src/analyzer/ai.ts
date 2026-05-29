@@ -1,4 +1,5 @@
 import { Output, ToolLoopAgent, stepCountIs, tool } from "ai";
+import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
 import type { ApiConfig } from "../config.js";
@@ -15,7 +16,7 @@ export async function analyzeWithAi(
   if (config.disableAi) return undefined;
 
   const agent = new ToolLoopAgent({
-    model: config.aiModel,
+    model: modelFromConfig(config),
     instructions: [
       "You are a UK property feasibility analyst for BT Lockers.",
       "Find only plausible dead-space placements: wall-hugged edges, perimeter strips, corners, rear/service yards, screened areas.",
@@ -85,4 +86,12 @@ export async function analyzeWithAi(
     confidence: parsed.data.confidence,
     notes: parsed.data.notes
   };
+}
+
+function modelFromConfig(config: ApiConfig) {
+  if (config.openAiApiKey && config.aiModel.startsWith("openai/")) {
+    return openai(config.aiModel.replace(/^openai\//, ""));
+  }
+
+  return config.aiModel;
 }

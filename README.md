@@ -14,6 +14,8 @@ A small TypeScript CLI and local web interface for finding possible BT Lockers h
 - Scores each site by dead-space size, estimated revenue, viability, nuisance risk, height restriction risk, and confidence.
 - Runs once from the CLI or repeatedly with a local cron scheduler.
 - Provides a local web interface for sorting, reviewing, and updating contact status.
+- Saves searches, site leads, contact data, AI feedback, and map images to Supabase/Postgres when `DATABASE_URL` is configured.
+- Lets users add more sites to an existing saved search while filtering out duplicates already in that list.
 - Includes a Vercel cron endpoint guarded by `CRON_SECRET`.
 
 ## Setup
@@ -26,9 +28,15 @@ cp .env.example .env
 Fill in `.env` with:
 
 - `GOOGLE_MAPS_API_KEY` for Places Text Search and Static Maps.
-- `GOOGLE_CUSTOM_SEARCH_API_KEY` and `GOOGLE_CUSTOM_SEARCH_CX` for Google Programmable Search.
 - `FIRECRAWL_API_KEY` for page scraping.
-- AI credentials supported by the Vercel AI SDK / AI Gateway if you want AI-assisted site analysis.
+- `DATABASE_URL` for Supabase/Postgres persistence.
+- `OPENAI_API_KEY` for direct OpenAI AI-assisted site analysis, or `AI_GATEWAY_API_KEY` for Vercel AI Gateway.
+
+The Google key must have these APIs enabled in Google Cloud:
+
+- Places API (New)
+- Geocoding API
+- Maps Static API
 
 ## Commands
 

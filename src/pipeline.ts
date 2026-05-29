@@ -90,7 +90,7 @@ async function discoverPlaces(
     throw new Error("GOOGLE_MAPS_API_KEY is required for real scans. Use --mock for local demo data.");
   }
 
-  const origin = await mapsClient.geocodeArea(options.area);
+  const origin = await safeGeocodeArea(mapsClient, options.area);
   const radiusContext = origin
     ? {
         center: origin.location,
@@ -114,6 +114,22 @@ async function discoverPlaces(
   }
 
   return allPlaces;
+}
+
+async function safeGeocodeArea(
+  mapsClient: GoogleMapsClient,
+  area: string
+): Promise<{ formattedAddress?: string; location: { latitude: number; longitude: number } } | undefined> {
+  try {
+    return await mapsClient.geocodeArea(area);
+  } catch (error) {
+    console.warn(
+      `Google geocoding failed for "${area}". Continuing without radius enforcement: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    return undefined;
+  }
 }
 
 async function searchSupportingPages(

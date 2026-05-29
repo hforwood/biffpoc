@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { databaseEnabled, loadReviewsDb, listSearchRunsDb, updateReviewDb } from "./db.js";
 import type { SiteReview, ScanSummary } from "./types.js";
 
 type ReviewMap = Record<string, SiteReview>;
@@ -10,6 +11,11 @@ const DEFAULT_REVIEW: SiteReview = {
 };
 
 export async function loadLatestSummary(outDir: string): Promise<ScanSummary | undefined> {
+  if (databaseEnabled()) {
+    const latest = (await listSearchRunsDb()).find((run) => run.summary);
+    return latest?.summary ? applyReviews(latest.summary, outDir) : undefined;
+  }
+
   const files = await listJsonReports(outDir);
   if (files.length === 0) return undefined;
 
@@ -41,11 +47,19 @@ export async function updateReview(outDir: string, leadId: string, patch: Partia
   };
 
   reviews[leadId] = next;
-  await saveReviews(outDir, reviews);
+  if (databaseEnabled()) {
+    await updateReviewDb(leadId, next);
+  } else {
+    await saveReviews(outDir, reviews);
+  }
   return next;
 }
 
 async function loadReviews(outDir: string): Promise<ReviewMap> {
+  if (databaseEnabled()) {
+    return loadReviewsDb();
+  }
+
   try {
     const raw = await fs.readFile(reviewPath(outDir), "utf8");
     return JSON.parse(raw) as ReviewMap;
@@ -56,6 +70,8 @@ async function loadReviews(outDir: string): Promise<ReviewMap> {
 }
 
 async function saveReviews(outDir: string, reviews: ReviewMap): Promise<void> {
+  if (databaseEnabled()) return;
+
   await fs.mkdir(outDir, { recursive: true });
   await fs.writeFile(reviewPath(outDir), `${JSON.stringify(reviews, null, 2)}\n`, "utf8");
 }

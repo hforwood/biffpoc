@@ -1,5 +1,5 @@
-import { defaultScanOptions, readEnv } from "../../src/config.js";
-import { runScan } from "../../src/pipeline.js";
+import { readEnv } from "../../src/config.js";
+import { createSearchRun } from "../../src/search-runs.js";
 import { parseSpaceTypes } from "../../src/space-types.js";
 
 interface VercelRequestLike {
@@ -24,27 +24,25 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
   }
 
   try {
-    const summary = await runScan(
-      defaultScanOptions({
-        county: readEnv("DEFAULT_COUNTY") ?? "Kent",
-        area: readEnv("DEFAULT_AREA") ?? readEnv("DEFAULT_COUNTY") ?? "Kent",
-        radiusMiles: readEnv("DEFAULT_RADIUS_MILES")
-          ? Number.parseFloat(readEnv("DEFAULT_RADIUS_MILES")!)
-          : undefined,
-        spaceTypes: parseSpaceTypes(readEnv("DEFAULT_SPACE_TYPES")),
-        limitPerType: Number.parseInt(readEnv("DEFAULT_LIMIT_PER_TYPE") ?? "2", 10),
-        maxSites: Number.parseInt(readEnv("DEFAULT_MAX_SITES") ?? "20", 10),
-        outDir: readEnv("REPORT_OUT_DIR") ?? "/tmp/biffpoc-runs",
-        useAi: readEnv("DISABLE_AI") !== "true",
-        mock: false
-      })
-    );
+    const area = readEnv("DEFAULT_AREA") ?? readEnv("DEFAULT_COUNTY") ?? "Kent";
+    const run = await createSearchRun(readEnv("REPORT_OUT_DIR") ?? "/tmp/biffpoc-runs", {
+      name: `${area} Scheduled Search`,
+      postCodes: [],
+      counties: [area],
+      radiusMiles: readEnv("DEFAULT_RADIUS_MILES") ? Number.parseFloat(readEnv("DEFAULT_RADIUS_MILES")!) : undefined,
+      spaceTypes: parseSpaceTypes(readEnv("DEFAULT_SPACE_TYPES")),
+      limitPerType: Number.parseInt(readEnv("DEFAULT_LIMIT_PER_TYPE") ?? "2", 10),
+      maxSites: Number.parseInt(readEnv("DEFAULT_MAX_SITES") ?? "20", 10),
+      useAi: readEnv("DISABLE_AI") !== "true",
+      mock: false
+    });
 
     res.status(200).json({
       ok: true,
-      county: summary.county,
-      generatedAt: summary.generatedAt,
-      totals: summary.totals
+      searchId: run.id,
+      status: run.status,
+      generatedAt: run.updatedAt,
+      totals: run.summary?.totals
     });
   } catch (error) {
     res.status(500).json({

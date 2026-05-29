@@ -7,23 +7,20 @@ export const DeadSpaceCandidateSchema = z.object({
   estimatedDepthM: z.number().nonnegative(),
   confidence: z.number().min(0).max(1),
   notes: z.string(),
-  risks: z.array(z.string()).default([]),
-  annotation: z
-    .object({
-      label: z.string(),
-      x1: z.number().min(0).max(1),
-      y1: z.number().min(0).max(1),
-      x2: z.number().min(0).max(1),
-      y2: z.number().min(0).max(1),
-      stroke: z.string().optional()
-    })
-    .optional()
+  risks: z.array(z.string()),
+  annotation: z.object({
+    label: z.string(),
+    x1: z.number().min(0).max(1),
+    y1: z.number().min(0).max(1),
+    x2: z.number().min(0).max(1),
+    y2: z.number().min(0).max(1)
+  })
 });
 
 export const AiSiteAnalysisSchema = z.object({
   deadSpaceCandidates: z.array(DeadSpaceCandidateSchema),
   confidence: z.number().min(0).max(1),
-  notes: z.array(z.string()).default([])
+  notes: z.array(z.string())
 });
 
 export type AiSiteAnalysisOutput = z.infer<typeof AiSiteAnalysisSchema>;

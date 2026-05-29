@@ -12,6 +12,7 @@ export interface ApiConfig {
   googleCustomSearchCx?: string;
   googleMapsApiKey?: string;
   firecrawlApiKey?: string;
+  openAiApiKey?: string;
   aiModel: string;
   disableAi: boolean;
 }
@@ -22,6 +23,7 @@ export function getApiConfig(): ApiConfig {
     googleCustomSearchCx: readEnv("GOOGLE_CUSTOM_SEARCH_CX"),
     googleMapsApiKey: readEnv("GOOGLE_MAPS_API_KEY"),
     firecrawlApiKey: readEnv("FIRECRAWL_API_KEY"),
+    openAiApiKey: readEnv("OPENAI_API_KEY"),
     aiModel: readEnv("AI_MODEL") ?? "openai/gpt-5.4",
     disableAi: readBooleanEnv("DISABLE_AI", false)
   };
