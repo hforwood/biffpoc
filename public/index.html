@@ -9,19 +9,48 @@
   <body>
     <aside class="sidebar">
       <nav class="side-nav" aria-label="Primary">
-        <button id="siteSearchNav" class="side-link" type="button" data-view="site-search">
-          <span class="icon">⌕</span>
+        <button id="siteSearchNav" class="side-link active" type="button" data-view="site-search">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m16.5 16.5 4 4"></path>
+          </svg>
           <span>Site Search</span>
         </button>
-        <button id="listsNav" class="side-link active" type="button" data-view="site-search">
-          <span class="icon">☷</span>
+        <button id="listsNav" class="side-link" type="button" data-view="list">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 6h12"></path>
+            <path d="M8 12h12"></path>
+            <path d="M8 18h12"></path>
+            <path d="M4 6h.01"></path>
+            <path d="M4 12h.01"></path>
+            <path d="M4 18h.01"></path>
+          </svg>
           <span>Lists</span>
         </button>
       </nav>
       <nav class="side-footer" aria-label="Account">
-        <button class="side-link muted" type="button"><span class="icon">⚙</span><span>Integrations</span></button>
-        <button class="side-link muted" type="button"><span class="icon">⚙</span><span>Settings</span></button>
-        <button class="side-link muted" type="button"><span class="icon">↪</span><span>Sign Out</span></button>
+        <button class="side-link muted" type="button">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.37a1.7 1.7 0 0 0-1 .63 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.6 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.23 15a1.7 1.7 0 0 0-.63-1 1.7 1.7 0 0 0-1.1-.4H2.4a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.23 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.6 3.63a1.7 1.7 0 0 0 1-.63A1.7 1.7 0 0 0 10 1.9V1.8a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.73 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.37 8a1.7 1.7 0 0 0 .63 1 1.7 1.7 0 0 0 1.1.4h.1a2 2 0 1 1 0 4h-.1A1.7 1.7 0 0 0 19.4 15Z"></path>
+          </svg>
+          <span>Integrations</span>
+        </button>
+        <button class="side-link muted" type="button">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.37a1.7 1.7 0 0 0-1 .63 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.6 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.23 15a1.7 1.7 0 0 0-.63-1 1.7 1.7 0 0 0-1.1-.4H2.4a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.23 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.6 3.63a1.7 1.7 0 0 0 1-.63A1.7 1.7 0 0 0 10 1.9V1.8a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.73 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.37 8a1.7 1.7 0 0 0 .63 1 1.7 1.7 0 0 0 1.1.4h.1a2 2 0 1 1 0 4h-.1A1.7 1.7 0 0 0 19.4 15Z"></path>
+          </svg>
+          <span>Settings</span>
+        </button>
+        <button class="side-link muted" type="button">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <path d="M16 17l5-5-5-5"></path>
+            <path d="M21 12H9"></path>
+          </svg>
+          <span>Sign Out</span>
+        </button>
       </nav>
     </aside>
 

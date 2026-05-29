@@ -32,6 +32,8 @@ const state = {
 };
 
 const els = {
+  siteSearchNav: document.querySelector("#siteSearchNav"),
+  listsNav: document.querySelector("#listsNav"),
   siteSearchView: document.querySelector("#siteSearchView"),
   listView: document.querySelector("#listView"),
   searchForm: document.querySelector("#searchForm"),
@@ -117,7 +119,17 @@ const siteTypePicker = createMultiPicker({
 });
 
 document.querySelectorAll(".side-link[data-view]").forEach((button) => {
-  button.addEventListener("click", () => showSearchView());
+  button.addEventListener("click", () => {
+    if (button.dataset.view === "site-search") {
+      showSearchView();
+      return;
+    }
+
+    if (button.dataset.view === "list" && selectedSearch()) {
+      state.view = "list";
+      render();
+    }
+  });
 });
 
 document.querySelectorAll("[data-search-sort]").forEach((th) => {
@@ -283,12 +295,18 @@ async function runSearch() {
 }
 
 function render() {
+  renderNavigation();
   renderPickers();
   renderChips();
   renderSearchRows();
   renderLeadRows();
   renderView();
   renderDrawer();
+}
+
+function renderNavigation() {
+  els.siteSearchNav.classList.toggle("active", state.view === "site-search");
+  els.listsNav.classList.toggle("active", state.view === "list");
 }
 
 function renderPickers() {
