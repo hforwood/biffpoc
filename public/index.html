@@ -239,6 +239,7 @@
           </label>
           <div class="tool-buttons">
             <button id="copyContractorProjectLink" class="outline" type="button">Copy Contractor Link</button>
+            <button id="addProjectPostcodesButton" class="outline" type="button">Add Postcodes</button>
             <button id="syncProjectButton" class="outline" type="button">Sync Sites</button>
             <button id="deleteProjectButton" class="outline" type="button">Delete Project</button>
           </div>
@@ -267,6 +268,35 @@
         </div>
       </section>
     </main>
+
+    <div id="projectModalBackdrop" class="modal-backdrop" hidden>
+      <section id="createProjectModal" class="app-modal" role="dialog" aria-modal="true" aria-labelledby="createProjectModalTitle" hidden>
+        <div class="modal-header">
+          <h2 id="createProjectModalTitle">Create New Project</h2>
+          <button id="closeCreateProjectModal" class="modal-close" type="button" aria-label="Close">×</button>
+        </div>
+        <label class="modal-field">
+          <input id="projectNameInput" placeholder="Name your project" />
+        </label>
+        <div class="modal-actions">
+          <button id="saveProjectNameButton" class="modal-primary" type="button">Save Project</button>
+        </div>
+      </section>
+
+      <section id="postcodesModal" class="app-modal" role="dialog" aria-modal="true" aria-labelledby="postcodesModalTitle" hidden>
+        <div class="modal-header">
+          <h2 id="postcodesModalTitle">Post Codes</h2>
+          <button id="closePostcodesModal" class="modal-close" type="button" aria-label="Close">×</button>
+        </div>
+        <label class="modal-field">
+          <span>Upload Post Codes</span>
+          <textarea id="projectPostcodesInput" rows="4" placeholder="Write post codes, line by line or separated by comma"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button id="saveProjectPostcodesButton" class="modal-primary" type="button">Save Post Codes</button>
+        </div>
+      </section>
+    </div>
 
     <aside id="drawer" class="drawer" aria-hidden="true">
       <div class="drawer-header">

@@ -22,6 +22,9 @@ const state = {
   view: "site-search",
   drawerTab: "profile",
   projectTab: "all",
+  projectModal: null,
+  projectPostcodeMode: "create",
+  pendingProjectName: "",
   pendingUploadRows: [],
   ownerFormLinks: {},
   searchFilter: "",
@@ -83,10 +86,20 @@ const els = {
   projectTitle: document.querySelector("#projectTitle"),
   contractorProjectLink: document.querySelector("#contractorProjectLink"),
   copyContractorProjectLink: document.querySelector("#copyContractorProjectLink"),
+  addProjectPostcodesButton: document.querySelector("#addProjectPostcodesButton"),
   syncProjectButton: document.querySelector("#syncProjectButton"),
   deleteProjectButton: document.querySelector("#deleteProjectButton"),
   projectTabs: document.querySelectorAll("[data-project-tab]"),
   projectSiteRows: document.querySelector("#projectSiteRows"),
+  projectModalBackdrop: document.querySelector("#projectModalBackdrop"),
+  createProjectModal: document.querySelector("#createProjectModal"),
+  closeCreateProjectModal: document.querySelector("#closeCreateProjectModal"),
+  projectNameInput: document.querySelector("#projectNameInput"),
+  saveProjectNameButton: document.querySelector("#saveProjectNameButton"),
+  postcodesModal: document.querySelector("#postcodesModal"),
+  closePostcodesModal: document.querySelector("#closePostcodesModal"),
+  projectPostcodesInput: document.querySelector("#projectPostcodesInput"),
+  saveProjectPostcodesButton: document.querySelector("#saveProjectPostcodesButton"),
   drawer: document.querySelector("#drawer"),
   scrim: document.querySelector("#scrim"),
   closeDrawer: document.querySelector("#closeDrawer"),
@@ -228,12 +241,13 @@ els.uploadSitesButton.addEventListener("click", () => els.uploadSitesInput.click
 els.uploadSitesInput.addEventListener("change", handleUploadFile);
 els.analyzeUploadButton.addEventListener("click", analyzeUploadedSites);
 els.downloadCsvButton.addEventListener("click", downloadSelectedCsv);
-els.createProjectButton.addEventListener("click", createProjectFromPrompt);
+els.createProjectButton.addEventListener("click", openCreateProjectModal);
 els.backToProjects.addEventListener("click", () => {
   state.view = "projects";
   state.selectedProjectId = null;
   render();
 });
+els.addProjectPostcodesButton.addEventListener("click", () => openPostcodesModal("edit"));
 els.syncProjectButton.addEventListener("click", syncSelectedProject);
 els.deleteProjectButton.addEventListener("click", deleteSelectedProject);
 els.copyContractorProjectLink.addEventListener("click", async () => {
@@ -250,6 +264,16 @@ els.projectTabs.forEach((button) => {
     renderProjectDetail();
   });
 });
+els.closeCreateProjectModal.addEventListener("click", closeProjectModal);
+els.closePostcodesModal.addEventListener("click", closeProjectModal);
+els.projectModalBackdrop.addEventListener("click", (event) => {
+  if (event.target === els.projectModalBackdrop) closeProjectModal();
+});
+els.projectNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") saveProjectName();
+});
+els.saveProjectNameButton.addEventListener("click", saveProjectName);
+els.saveProjectPostcodesButton.addEventListener("click", saveProjectPostcodes);
 els.leadSelectAll.addEventListener("change", () => {
   const visibleLeads = sortedLeads(filteredLeads(selectedSearch()?.summary?.leads || []));
   for (const lead of visibleLeads) {
@@ -386,6 +410,7 @@ function render() {
   renderProjectRows();
   renderProjectDetail();
   renderView();
+  renderProjectModal();
   renderDrawer();
 }
 
@@ -739,33 +764,89 @@ async function addMoreSites() {
   }
 }
 
-async function createProjectFromPrompt() {
-  const name = window.prompt("Project name", "New Lockerly Project");
-  if (name === null) return;
-  const rawPostcodes = window.prompt("Postcodes for this project. Use commas or new lines.", "");
-  if (rawPostcodes === null) return;
-  const postCodes = rawPostcodes
-    .split(/,|\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+function openCreateProjectModal() {
+  state.pendingProjectName = "";
+  state.projectModal = "create-project";
+  state.projectPostcodeMode = "create";
+  els.projectNameInput.value = "";
+  renderProjectModal();
+  queueMicrotask(() => els.projectNameInput.focus());
+}
+
+function openPostcodesModal(mode) {
+  state.projectPostcodeMode = mode;
+  state.projectModal = "postcodes";
+  const project = selectedProject();
+  els.projectPostcodesInput.value = mode === "edit" && project ? (project.postCodes || []).join("\n") : "";
+  renderProjectModal();
+  queueMicrotask(() => els.projectPostcodesInput.focus());
+}
+
+function closeProjectModal() {
+  state.projectModal = null;
+  renderProjectModal();
+}
+
+function renderProjectModal() {
+  const modal = state.projectModal;
+  els.projectModalBackdrop.hidden = !modal;
+  els.createProjectModal.hidden = modal !== "create-project";
+  els.postcodesModal.hidden = modal !== "postcodes";
+}
+
+function saveProjectName() {
+  const name = els.projectNameInput.value.trim();
+  if (!name) {
+    alert("Enter a project name.");
+    return;
+  }
+  state.pendingProjectName = name;
+  openPostcodesModal("create");
+}
+
+async function saveProjectPostcodes() {
+  const postCodes = parsePostcodes(els.projectPostcodesInput.value);
   if (!postCodes.length) {
     alert("Add at least one postcode.");
     return;
   }
 
+  els.saveProjectPostcodesButton.disabled = true;
+  els.saveProjectPostcodesButton.textContent = "Saving";
   try {
-    const data = await fetchJson("/api/projects", {
-      method: "POST",
+    const isEdit = state.projectPostcodeMode === "edit";
+    const project = selectedProject();
+    const url = isEdit && project ? `/api/projects/${project.id}` : "/api/projects";
+    const data = await fetchJson(url, {
+      method: isEdit ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, postCodes })
+      body: JSON.stringify({
+        name: isEdit ? project?.name : state.pendingProjectName,
+        postCodes
+      })
     });
-    state.projects = [data.project, ...state.projects.filter((project) => project.id !== data.project.id)];
+    state.projects = [data.project, ...state.projects.filter((item) => item.id !== data.project.id)];
     state.selectedProjectId = data.project.id;
     state.view = "project-detail";
+    closeProjectModal();
     render();
   } catch (error) {
     alert(errorMessage(error));
+  } finally {
+    els.saveProjectPostcodesButton.disabled = false;
+    els.saveProjectPostcodesButton.textContent = "Save Post Codes";
   }
+}
+
+function parsePostcodes(value) {
+  return [
+    ...new Set(
+      value
+        .split(/,|\n/)
+        .map((item) => item.trim().toUpperCase())
+        .filter(Boolean)
+    )
+  ];
 }
 
 async function openProject(projectId) {
